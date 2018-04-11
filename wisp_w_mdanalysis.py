@@ -1,5 +1,5 @@
 #!
-##!/home/rbdavid/bin/python
+#!/home/rbdavid/bin/python
 
 # ----------------------------------------
 # PREAMBLE:
