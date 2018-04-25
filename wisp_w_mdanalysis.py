@@ -25,8 +25,8 @@ sum = np.sum
 dot = np.dot
 eigen = np.linalg.eig
 
-necessary_parameters = ['ref_pdb','pdb','traj_loc','start','end','Wrapped','outputname','selection_file','resid_offset']
-all_parameters = ['ref_pdb','pdb','traj_loc','start','end','Wrapped','outputname','selection_file','resid_offset','alignment','wrapping_selection','substrates','homemade_selections','write_summary','summary_filename','selection_output']
+necessary_parameters = ['pdb','node_type','user_defined_selection']
+all_parameters = ['pdb','node_type','user_defined_selection','alignment_selection','selection_output_filename','trajectory_file_list','start','end','trajectory_location_string','nSteps','trajectory_stepping_value','user_defined_average_structure']
 
 # ----------------------------------------
 # FUNCTIONS: 
@@ -47,7 +47,7 @@ def config_parser(config_file):	# Function to take config file and create/fill t
 		parameters[necessary_parameters[i]] = ''
 	
 	# SETTING DEFAULT PARAMETERS FOR OPTIONAL PARAMETERS:
-	parameters['alignment'] = 'protein'
+	parameters['alignment_selection'] = 'protein'
 	parameters['wrapping_selection'] = 'not (resname WAT or resname Na+ or resname Cl- or protein)'
 	parameters['substrates'] = None
 	parameters['homemade_selections'] = None
@@ -152,7 +152,7 @@ def make_selection(u,node_type,user_defined_selection,selection_output_filename)
 def get_average_coordinates(avg_universe,node_type,alignment_selection_string,user_defined_selection,nNodes):
 	"""
 	"""
-	if PARAMETERS['node_type'] == 'atomic':
+	if node_type == 'atomic':
 		node_average_coordinates = avg_universe.select_atoms(user_defined_selection).positions
 		align_average_coordinates = avg_universe.select_atoms(alignment_selection_string).positions
 		return node_average_coordinates, align_average_coordinates
@@ -262,44 +262,49 @@ def main():
 	# INITIALIZING MDANALYSIS UNIVERSES 
 	u = MDAnalysis.Universe(parameters['pdb'])
 	u_all = u.select_atoms('all')
-	u_align = u.select_atoms(parameters['alignment'])
-	u_analysis_selection, u_analysis_selection_list, nNodes = make_selection(u,PARAMETERS['node_type'],PARAMETERS['user_defined_selection'],PARAMETERS['selection_output_filename'])
+	u_align = u.select_atoms(parameters['alignment_selection'])
+	u_analysis_selection, u_analysis_selection_list, nNodes = make_selection(u,parameters['node_type'],parameters['user_defined_selection'],parameters['selection_output_filename'])
 	nAlign = u_align.n_atoms
 
 	# ----------------------------------------
 	# INITIALIZING PARAMETER VARIABLES
-	if PARAMETERS['trajectory_file_list'] == None:
+	if parameters['trajectory_file_list'] == None:
 		start = int(parameters['start'])
 		end = int(parameters['end'])
 
 		trajectory_file_list = []
 		temp = start
 		while temp <= end:
-			trajectory_file_list.append(PARAMETERS['trajectory_location_string']%(temp,temp))	# HUGE SOURCE OF ANNOYANCE... NOT EVERYONE ORGANIZES TRAJECTORIES IN THIS SPECIFIC FORMAT/LOCATION/ETC... potential solution: read in a file that contains the global location for all trajectory files to be analyzed
+			trajectory_file_list.append(parameters['trajectory_location_string']%(temp,temp))	# HUGE SOURCE OF ANNOYANCE... NOT EVERYONE ORGANIZES TRAJECTORIES IN THIS SPECIFIC FORMAT/LOCATION/ETC... potential solution: read in a file that contains the global location for all trajectory files to be analyzed
 	else: print 'User has read in a trajectory file list.'
 
 	# ----------------------------------------
 	# DETERMINING nSTEPS TO BE ANALYZED 
-	if PARAMETERS['nSteps'] == None:
+	if parameters['nSteps'] == None:
 		nSteps = 0
 		for i in trajectory_file_list:
 			u.load_new(i)
-			nSteps += len(range(0,u.trajectory.n_frames,PARAMETERS['trajectory_stepping_value']))
+			nSteps += len(range(0,u.trajectory.n_frames,parameters['trajectory_stepping_value']))
 	else:
-		nSteps = int(PARAMETERS['nSteps'])
+		nSteps = int(parameters['nSteps'])
 
 	# ----------------------------------------
 	# CALCULATING ITERATIVE AVERAGE STRUCTURE
-	if PARAMETERS['user_defined_average_structure'] == None:
-		node_average_coordinates, align_average_coordinates = iterative_avg(u,trajectory_file_list,u_all,u_align,u_analysis_selection_list,PARAMATERS['node_type'],nNodes,nAlign,nSteps,trajectory_stepping_value=PARAMETERS['trajectory_stepping_value'])
+	if parameters['user_defined_average_structure'] == None:
+		node_average_coordinates, align_average_coordinates = iterative_avg(u,trajectory_file_list,u_all,u_align,u_analysis_selection_list,parameters['node_type'],nNodes,nAlign,nSteps,trajectory_stepping_value=parameters['trajectory_stepping_value'])
 	else:
-		avg = MDAnalysis.Universe(PARAMETERS['user_defined_average_structure'])		# assumes a pdb file of the alignment and analysis selections, at the very least.
-		node_average_coordinates, align_average_coordinates = get_average_coordinates(avg,PARAMETERS['node_type'],parameters['alignment'],PARAMETERS['user_defined_selection'],nNodes)
+		avg = MDAnalysis.Universe(parameters['user_defined_average_structure'])		# assumes a pdb file of the alignment and analysis selections, at the very least.
+		node_average_coordinates, align_average_coordinates = get_average_coordinates(avg,parameters['node_type'],parameters['alignment_selection'],parameters['user_defined_selection'],nNodes)
 	
 	# ----------------------------------------
 	# OUTPUTTING AVG COORDINATES OF ALIGNMENT LANDMARK AND ANALYSIS SELECTION
 	###
 
+	# ----------------------------------------
+	# READ IN USER DEFINED AVG DISTANCE MATRIX BETWEEN EACH NODE PAIR; TO BE USED TO SIMPLIFY THE CORRELATION MATRIX
+
+	# ----------------------------------------
+	# CALCULATE DISTANCE BETWEEN AVERAGE NODE POSITION AND NODE POSITION AT TIME t
 
 
 
