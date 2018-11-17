@@ -1,0 +1,24 @@
+Using MDAnalysis version: 0.19.0
+
+Atom selections analyzed have been written out to selection_list.out
+To recreate this analysis, run this line:
+./wisp_w_mdanalysis.py wisp_w_mdanalysis.config 
+
+Parameters used:
+traj_list = '['/home/rbdavid/Projects/Molecular_Machines/Helicase_DENV/Analysis/Comparisons/WISP/AMBER_ssrna_atp/production.150/production.150.dcd']'
+selection_output_filename = 'selection_list.out'
+trajectory_analysis_boolean = 'True'
+summary_boolean = 'True'
+alignment_selection = 'all'
+distance_functions_file = 'distance_functions.py'
+substrate_selection_string = 'not resname Na+ Cl- WAT'
+selection_file = 'make_selections.py'
+homemade_selections = 'None'
+substrate_node_definition = 'COM'
+functionalized_weighted_correlation_matrix_file_name = 'func_corr_matrix.dat'
+summary_filename = 'node_node_corr.summary'
+weight_by_avg_distance_boolean = 'False'
+nonstandard_substrates_selection = 'None'
+output_directory = 'testing/'
+pdb = '/home/rbdavid/Projects/Molecular_Machines/Helicase_DENV/Analysis/Comparisons/WISP/AMBER_ssrna_atp/production.150/truncated.pdb'
+contact_map_distance_cutoff = 15.0
