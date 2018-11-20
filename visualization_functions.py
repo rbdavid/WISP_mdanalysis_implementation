@@ -55,8 +55,7 @@ def create_vis_state(visualization_frame_pdb,selection_list,paths,vis_state_file
         possible_colorids = range(VMD_color_index_range[0], VMD_color_index_range[1]+1)
         nColorid = len(possible_colorids)
         for colorid in possible_colorids:
-                thiscolor = shortest_path_rgb + colorid * (longest_path_rgb - shortest_path_rgb)/nColorid
-                
+                thiscolor = shortest_path_rgb + (colorid - VMD_color_index_range[0]) * (longest_path_rgb - shortest_path_rgb)/(nColorid-1)
                 color_defs[colorid] = "color change rgb " + str(colorid) + " " + str(thiscolor[0]) + " " + str(thiscolor[1]) + " " + str(thiscolor[2]) + '\n'
 
         # ----------------------------------------
