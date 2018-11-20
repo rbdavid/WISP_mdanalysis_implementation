@@ -211,7 +211,6 @@ def make_nonstandard_selections(analysis_universe,resname,resid,output_file,sour
 		# CREATING THE SLECTION FOR THE PHOSPHATE OF NUCLEIC RESIDUES
 		sel_string = "(resname %s and resid %s and name P OP1 OP2 O5') or (resid %s and name O3')" %(resname,resid,resid-1)
 		temp = analysis_universe.select_atoms(sel_string)
-                print temp.n_atoms
 		selection_list.append(temp)
 
                 node_string = '%s_%s_Phosphate' %(resname,resid)
@@ -390,79 +389,3 @@ def make_nonstandard_selections(analysis_universe,resname,resid,output_file,sour
 		count +=1
 		return
 
-# ----------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-## ----------------------------------------
-## OLD FUNCTIONS
-## ----------------------------------------
-#
-#def old_make_selection(u,node_type,user_defined_selection,selection_output_filename):
-#	selection_list = []
-#
-#	if node_type == 'atomic':
-#		selection = u.select_atoms(user_defined_selection)	# atomic selection string; most dangerous selection string... 
-#		nAtoms = selection.n_atoms 
-#		temp = '%0'+'%d'%(int(np.log10(nAtoms))+1)+'d'	# for correct zero pad when numbering selections
-#		with open(selection_output_filename,'w') as W:
-#			W.write('# selection_num   Atom_num   Atom_name   Resid\n')
-#			for i in range(nAtoms):
-#				selection_list.append(selection.atoms[i])
-#				W.write(temp%(i)+'   %d   %s   %d\n' %(selection.atoms[i].number,selection.atoms[i].name,selection.atoms[i].resid))
-#		return selection, selection_list, nAtoms
-#
-#	elif node_type == 'residue_COM':
-#		selection = u.select_atoms(user_defined_selection)	# does not necessitate only protein selection; assumes only one node per residue
-#		nResidues = selection.n_residues
-#		order_of_magnitude = int(np.log10(nResidues))+1		# for correct zero pad when numbering selections
-#		temp = '%0'+'%d'%(order_of_magnitude)+'d'
-#		with open(selection_output_filename,'w') as W:
-#			W.write('# selection_num   Res_name   Resid   Num_atoms ! CENTER OF MASS SELECTION\n')
-#			for i in range(nResidues):
-#				selection_list.append(selection.residues[i])	# want to select all atoms in residue i of selection;
-#				W.write(temp%(i)+'   %s   %d   %d\n'%(selection.residues[i].resname,selection.residues[i].resid,selection.residues[i].n_atoms))
-#		return selection, selection_list, nResidues
-#
-#	elif node_type == 'backbone_COM':
-#		selection = u.select_atoms('(backbone or nucleicbackbone) and '+user_defined_selection)	# does not necessitate only protein selection; assumes only one node per residue.
-#		nResidues = selection.n_residues
-#		order_of_magnitude = int(np.log10(nResidues))+1		# for correct zero pad when numbering selections
-#		temp = '%0'+'%d'%(order_of_magnitude)+'d'
-#		with open(selection_output_filename,'w') as W:
-#			W.write('# selection_num   Res_name   Resid   Num_atoms ! CENTER OF MASS OF BACKBONE SELECTION\n')
-#			for i in range(nResidues):
-#				temp_atom_group = selection[selection.resids == selection.residues[i].resid]	# only want to include atoms in that SHOULD BE in the atom selection. 
-#				selection_list.append(temp_atom_group)
-#				W.write(temp%(i)+'   %s   %d   %d\n'%(temp_atom_group.atoms[0].resname, temp_atom_group.atoms[0].resid, temp_atom_group.n_atoms))
-#		return selection, selection_list, nResidues
-#
-#	elif node_type == 'sidechain_COM':
-#		selection = u.select_atoms('not (backbone or nucleicbackbone) and '+user_defined_selection)	# does not necessitate only protein selection; assumes only one node per residue.
-#		nResidues = selection.n_residues
-#		order_of_magnitude = int(np.log10(nResidues))+1		# for correct zero pad when numbering selections
-#		temp = '%0'+'%d'%(order_of_magnitude)+'d'
-#		with open(selection_output_filename,'w') as W:
-#			W.write('# selection_num   Res_name   Resid   Num_atoms ! CENTER OF MASS OF SIDECHAIN SELECTION\n')
-#			for i in range(nResidues):
-#				temp_atom_group = selection[selection.resids == selection.residues[i].resid]	# only want to include atoms in that SHOULD BE in the atom selection. 
-#				selection_list.append(temp_atom_group)
-#				W.write(temp%(i)+'   %s   %d   %d\n'%(temp_atom_group.atoms[0].resname, temp_atom_group.atoms[0].resid, temp_atom_group.n_atoms))
-#		return selection, selection_list, nResidues
-#		
-#	### STILL TO DO:
-#	# MORE COMPLEX, USER DEFINED ATOM SELECTIONS; good example: multiple sites per residue (i.e. backbone and sidechain COM for each residue of interest, with the correct node ordering based on resid)
-#
-#	else:
-#		print "Parameter value for 'node_type' does not equal an expected string. Please check the parameter and try again."
-#		sys.exit()
-#

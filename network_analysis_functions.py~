@@ -1,275 +1,220 @@
 
 # PREAMBLE:
 
-import MDAnalysis
-from MDAnalysis.analysis.align import rotation_matrix
+import sys
+import copy
 import numpy as np
 from numpy.linalg import *
+import networkx
 
-def euclid_dist(x,y):
-        """ Calculates the Euclidian Distance between two arrays of the same size
-        Usage: dist,dist2 = euclid_dist(x,y)
-            
-        Arguments:
-        x, y: numpy arrays with the same size
+######################### To Identify Paths ##############################
+
+def get_paths(correlation_matrix,sources,sinks,number_of_paths):
+        """
         """
 
-        dist2 = np.sum(np.square(x-y))
-        dist = dist2**0.5   # the MSD should never be negative, so using **0.5 rather than np.sqrt is safe
-        return dist, dist2
-
-def RMSD(x,y,n):
-	""" Calculates the Root Mean Squared Distance between two arrays of the same size
-
-	Usage: rmsd = RMSD(x,y,n)
-
-	Arguments:
-	x, y: numpy arrays with the same shape (n X 3)
-	n: number of particles being summed over; ex: number of atoms in the atom selection being analyzed;
-		if n = 1, this function calculates the distance between x and y arrays
-
-	"""
-	
-	return (np.sum(np.square(x-y))/n)**0.5	# the MSD should never be negative, so using **0.5 rather than np.sqrt is safe
-
-def correlation_trajectory_analysis(universe, alignment_selection, selection_list, trajectory_list, convergence_threshold = 1E-5, maximum_num_iterations = 100, average_file_name=None, variance_file_name=None, correlation_file_name=None):
-	"""
-	"""
-	
-        # ----------------------------------------
-	# CREATING ALIGNMENT SELECTIONS
-        # ----------------------------------------
-        u_all = universe.select_atoms('all')
-        u_alignment = universe.select_atoms(alignment_selection)
-        nAlign = u_alignment.n_atoms
-        nNodes = len(selection_list)
+        nNodes = len(correlation_matrix) 
         nNodes_range = range(nNodes)
 
-        print nAlign, nNodes
+        #populate graph nodes and weighted edges
+        G = networkx.Graph(data = correlation_matrix)
 
         # ----------------------------------------
-	# ANALYZE TRAJECTORIES TO COLLECT THE NECESSARY POSITION DATA
+        # SHORTEST PATH CALCULATION
         # ----------------------------------------
-        all_pos_Align = []
-        all_pos_Nodes = []
-        nSteps = 0
-        for traj in trajectory_list:
-                print 'Loading trajectory', traj
-                universe.load_new(traj)
-                nSteps += len(universe.trajectory)
-                for ts in universe.trajectory:
-                        u_all.translate(-u_alignment.center_of_mass())
-                        all_pos_Align.append(u_alignment.positions)
-                        temp = []
-                        for i in nNodes_range:
-                                temp.append(selection_list[i].center_of_mass())
-                        all_pos_Nodes.append(temp)
-
-        print 'Analyzed', nSteps, 'frames. Does this match up with expectation?'
+        shortest_length = 99999999.999
+        shortest_path = []
+        for source in sources:
+                for sink in sinks:
+                        if source != sink:
+                                short_path = networkx.dijkstra_path(G,source,sink,weight='weight')
+                                length = 0
+                                for t in range(len(short_path)-1):
+                                        length += correlation_matrix[short_path[t],short_path[t+1]]
+                                if length < shortest_length:
+                                        shortest_length = length
+                                        shortest_path = short_path
         
-        all_pos_Align = np.array(all_pos_Align)
-        all_pos_Nodes = np.array(all_pos_Nodes)
-
-        avg_pos_Align = np.sum(all_pos_Align,axis=0)/nSteps
-        avg_pos_Nodes = np.sum(all_pos_Nodes,axis=0)/nSteps
-
-        # ----------------------------------------
-	# ITERATIVE ALIGNMENT TO AVERAGE ALIGNMENT POSITIONS
-        # ----------------------------------------
-        iteration = 0 
-        residual = convergence_threshold + 9999.
-        nSteps_range = range(nSteps)
-        print 'Beginning the iterative process of aligning to the average alignment positions, calculating new positions, and recalculating the average positions'
-        while residual > convergence_threshold and iteration < maximum_num_iterations:
-                temp_avg_pos_Align = np.zeros((nAlign,3),dtype=np.float32)
-                temp_avg_pos_Nodes = np.zeros((nNodes,3),dtype=np.float32)
-
-                for ts in nSteps_range:
-                        R, d = rotation_matrix(all_pos_Align[ts,:,:],avg_pos_Align)      # calculate the rotation matrix (and distance) between frame i's alignment postions to the average alignment positions
-                        all_pos_Align[ts,:,:] = np.dot(all_pos_Align[ts,:,:],R.T)       # take the dot product between frame i's alignment positions and the calculated rotation matrix; overwrite frame i's positions with the rotated postions
-                        all_pos_Nodes[ts,:,:] = np.dot(all_pos_Nodes[ts,:,:],R.T) # take the dot product between frame i's analysis positions and the calculated rotation matrix; overwrite frame i's positions with the rotated postions
-                        temp_avg_pos_Align += all_pos_Align[ts,:,:]      # running sum of alignment positions to calculate a new average
-                        temp_avg_pos_Nodes += all_pos_Nodes[ts,:,:]      # running sum of analysis positions to calculate a new average
-               
-                temp_avg_pos_Align /= nSteps
-                temp_avg_pos_Nodes /= nSteps
-                residual = RMSD(avg_pos_Align,temp_avg_pos_Align,nAlign)
-                analysis_RMSD = RMSD(avg_pos_Nodes,temp_avg_pos_Nodes,nNodes)
-                iteration += 1
-                avg_pos_Align = temp_avg_pos_Align
-                avg_pos_Nodes = temp_avg_pos_Nodes
-                print 'Iteration ', iteration, ': RMSD btw alignment landmarks: ', residual,', RMSD btw Node Positions: ', analysis_RMSD
-        
-        print 'Finished calculating the average structure using the iterative averaging approach. Outputting the average node positions to file.'
-
-        # ----------------------------------------
-        # SAVE AVERAGE NODE POSITIONS TO FILE
-        # ----------------------------------------
-        if average_file_name != None:
-                np.savetxt(average_file_name,avg_pos_Nodes)
-
-        # ----------------------------------------
-        # CALC CORRELATIONS OF DISTANCES OF NODES FROM THEIR AVERAGE POSITIONS
-        # ----------------------------------------
-        print 'Beginning correlation analysis.'
-        xyz_node_variance = np.zeros((nNodes,3),dtype=np.float64)
-        xyz_node_covariance = np.zeros((nNodes,nNodes,3),dtype=np.float64)
-
-        for ts in nSteps_range:
-                for i in nNodes_range:
-                        xyz_node_variance[i] += all_pos_Nodes[ts,i,:]**2
-                        for j in nNodes_range[i:]:      # looking at diagonal and top triangle elements of the covariance matrix
-                                xyz_node_covariance[i,j,:] += all_pos_Nodes[ts,i,:]*all_pos_Nodes[ts,j,:]
-
-        xyz_node_variance /= nSteps
-        xyz_node_variance -= avg_pos_Nodes**2
-        xyz_node_covariance /= nSteps
-
-        for i in nNodes_range:
-                for j in nNodes_range[i:]:
-                        xyz_node_covariance[i,j] -= avg_pos_Nodes[i]*avg_pos_Nodes[j]
-
-        distance_node_variance = np.zeros((nNodes),dtype=np.float64)
-        distance_node_correlation = np.zeros((nNodes,nNodes),dtype=np.float64)
-        for i in nNodes_range:
-                distance_node_variance[i] = np.sum(xyz_node_variance[i,:])
-        
-        for i in nNodes_range:
-                for j in nNodes_range[i:]:
-                        distance_node_correlation[i,j] = np.sum(xyz_node_covariance[i,j])/np.sqrt(distance_node_variance[i]*distance_node_variance[j])
-                        distance_node_correlation[j,i] = distance_node_correlation[i,j]
-
-        # ----------------------------------------
-        # SAVE VARIANCE AND CORRELATION OF NODE-NODE POSITIONS TO FILE
-        # ----------------------------------------
-        if variance_file_name != None:
-                np.savetxt(variance_file_name,distance_node_variance)
-        if correlation_file_name != None:
-                np.savetxt(correlation_file_name,distance_node_correlation)
-
-        # ----------------------------------------
-        # RETURNING THE VARIANCE AND CORRELATION ARRAYS TO BE USED AGAIN
-        # ----------------------------------------
-        return distance_node_correlation, distance_node_variance, all_pos_Nodes, avg_pos_Nodes
-        
-
-def calc_contact_map(trajectory_data,distance_cutoff,binary_contact_map_file_name=None,avg_node_node_distance_file_name=None):
-        """
-        """
-	
-        # ----------------------------------------
-	# MEASURING THE AVERAGE DISTANCE BETWEEN NODES
-        # ----------------------------------------
-        nSteps = len(trajectory_data)
-        nSteps_range = range(nSteps)
-        nNodes = len(trajectory_data[0])
-        nNodes_range = range(nNodes)
-        avg_node_node_distance_array = np.zeros((nNodes,nNodes),dtype=np.float64)
-        print 'Starting to calculate the average distance between nodes.'
-        for ts in nSteps_range:
-                for i in nNodes_range[:-1]:
-                        node1_pos = trajectory_data[ts,i]
-                        for j in nNodes_range[i+1:]:
-                                dist,dist2 = euclid_dist(node1_pos,trajectory_data[ts,j])
-                                avg_node_node_distance_array[i,j] += dist
-       
-        avg_node_node_distance_array /= nSteps
+        print 'Shortest pathway information:', shortest_length, shortest_path
         
         # ----------------------------------------
-	# CREATING THE BINARY DISTANCE CONTACT MAP
+        # SUBOPTIMAL PATHS CALCULATION
         # ----------------------------------------
-        binary_node_node_distance_array = np.zeros((nNodes,nNodes),np.int)
-        for i in nNodes_range[:-1]:
-                for j in nNodes_range[i+1:]:
-                        avg_node_node_distance_array[j,i] = avg_node_node_distance_array[i,j]
-                        if avg_node_node_distance_array[i,j] < distance_cutoff:
-                                binary_node_node_distance_array[i,j] = 1
-                                binary_node_node_distance_array[j,i] = 1
+        num_paths = 1
+        path = [shortest_length]
+        path.extend(shortest_path)
+        paths = [path]
 
-        if binary_contact_map_file_name != None:
-                np.savetxt(binary_contact_map_file_name,binary_node_node_distance_array)
-        if avg_node_node_distance_file_name != None:
-                np.savetxt(avg_node_node_distance_file_name,avg_node_node_distance_array)
+        cutoff = shortest_length
 
-        return binary_node_node_distance_array, avg_node_node_distance_array
+        cutoff_yields_max_num_paths_below_target = 0 
+        cutoff_yields_min_num_paths_above_target = 1000000.0 
 
-#def average_structure_calc(pdb,alignment_selection,analysis_selection,traj_list,avg_structure_file_name, convergence_threshold = 1E-5, maximum_num_iterations = 100, wrapping_boolean = False):
-#        """
-#        """
-#
-#        # ----------------------------------------
-#        # LOAD IN AND CREATE ATOM SELECTIONS IN THE ANALYSIS UNIVERSE OBJECT
-#        u = MDAnalysis.Universe(pdb)
-#        u_all = u.select_atoms('all')
-#        u_align = u.select_atoms(alignment_selection)  # MDAnalysis atom selection string formatting required.
-#        u_analysis = u.select_atoms(analysis_selection)  # MDAnalysis atom selection string formatting required.
-#        nAtoms_align = u_align.n_atoms
-#        nAtoms_analysis = u_analysis.n_atoms
-#
-#        # ----------------------------------------
-#        # ANALYZE TRAJECTORIES TO COLLECT THE NECESSARY POSITION DATA
-#        all_pos_align = []
-#        all_pos_analysis = []
-#        nSteps = 0
-#        nResidues_range = range(u_analysis.n_residues)
-#        for i in traj_list:
-#                print 'Loading trajectory', i
-#                u.load_new(i)
-#                nSteps += len(u.trajectory)
-#                for ts in u.trajectory:
-#                        u_all.translate(-u_align.center_of_mass())
-#                        
-#                        if wrapping_boolean:
-#                                dimensions = u.dimensions[:3]
-#                                for j in nResidues_range:
-#                                        COM = u_analysis.residues[j].center_of_mass()
-#                                        t = wrapping(COM,dimensions)
-#                                        u_analysis.residues[j].atoms.translate(t)
-#                        
-#                        all_pos_align.append(u_align.positions)
-#                        all_pos_analysis.append(u_analysis.positions)
-#        
-#        print 'Analyzed', nSteps, 'frames. Does this match up with expectation?'
-#
-#        all_pos_align = np.array(all_pos_align)
-#        all_pos_analysis = np.array(all_pos_analysis)
-#
-#        avg_pos_align = np.sum(all_pos_align,axis=0)/nSteps
-#        avg_pos_analysis = np.sum(all_pos_analysis,axis=0)/nSteps
-#
-#        # ----------------------------------------
-#        # ITERATIVE ALIGNMENT TO AVERAGE ALIGNMENT POSITIONS
-#        iteration = 0 
-#        residual = convergence_threshold + 9999.
-#        nSteps_range = range(nSteps)
-#        print 'Beginning the iterative process of aligning to the average alignment positions, calculating new positions, and recalculating the average positions'
-#        while residual > convergence_threshold and iteration < maximum_num_iterations:
-#                temp_avg_pos_align = np.zeros((nAtoms_align,3),dtype=np.float32)
-#                temp_avg_pos_analysis = np.zeros((nAtoms_analysis,3),dtype=np.float32)
-#
-#                for i in nSteps_range:
-#                        R, d = rotation_matrix(all_pos_align[i,:,:],avg_pos_align)      # calculate the rotation matrix (and distance) between frame i's alignment postions to the average alignment positions
-#                        all_pos_align[i,:,:] = dot_prod(all_pos_align[i,:,:],R.T)       # take the dot product between frame i's alignment positions and the calculated rotation matrix; overwrite frame i's positions with the rotated postions
-#                        all_pos_analysis[i,:,:] = dot_prod(all_pos_analysis[i,:,:],R.T) # take the dot product between frame i's analysis positions and the calculated rotation matrix; overwrite frame i's positions with the rotated postions
-#                        temp_avg_pos_align += all_pos_align[i,:,:]          # running sum of alignment positions to calculate a new average
-#                        temp_avg_pos_analysis += all_pos_analysis[i,:,:]    # running sum of analysis positions to calculate a new average
-#               
-#                temp_avg_pos_align /= nSteps
-#                temp_avg_pos_analysis /= nSteps
-#                residual = RMSD(avg_pos_align,temp_avg_pos_align,nAtoms_align)
-#                analysis_RMSD = RMSD(avg_pos_analysis,temp_avg_pos_analysis,nAtoms_analysis)
-#                iteration += 1
-#                avg_pos_align = temp_avg_pos_align
-#                avg_pos_analysis = temp_avg_pos_analysis
-#                print 'Iteration ', iteration, ': RMSD btw alignment landmarks: ', residual,', RMSD btw analysis atoms: ', analysis_RMSD
-#        
-#        print 'Finished calculating the average structure using the iterative averaging approach. Outputting the average structure to a pdb now.'
-#        # ----------------------------------------
-#        # LOAD IN AND CREATE ATOM SELECTIONS IN THE RESULTS UNIVERSE OBJECT
-#        avg = MDAnalysis.Universe(pdb)
-#        avg_analysis = avg.select_atoms(analysis_selection)
-#        avg_analysis.positions = avg_pos_analysis
-#        avg_analysis.write(avg_structure_file_name)
-#
-#        return avg_pos_analysis, all_pos_analysis
+        # ----------------------------------------
+        # first step, keep incrementing a little until you have more than the desired number of paths
+        # ----------------------------------------
+        while num_paths < number_of_paths:
+                cutoff_in_array = np.array([cutoff])
+                print 'new cutoff = ', cutoff
+                
+                # ----------------------------------------
+                # starting get_paths_between_multiple_endpoints
+                # ----------------------------------------
+                temp_paths = []
+                for source in sources:
+                        for sink in sinks:
+                                if source != sink:
+                                        # ----------------------------------------
+                                        # starting get_paths_fixed_endpoints
+                                        # ----------------------------------------
+                                        # measure shortest paths between source/sink nodes to all other nodes; based on the G graph
+                                        source_lengths, source_paths = networkx.single_source_dijkstra(G,source,target=None,cutoff=None,weight='weight')
+                                        sink_lengths, sink_paths = networkx.single_source_dijkstra(G,sink,target=None,cutoff=None,weight='weight')
+
+                                        # converting networkx results from dictionaries to lists
+                                        source_lengths_list = [source_lengths[key] for key in source_lengths.keys()]
+                                        source_paths_list = [source_paths[key] for key in source_paths.keys()]
+                                        sink_lengths_list = [sink_lengths[key] for key in sink_lengths.keys()]
+                                        sink_paths_list = [sink_paths[key] for key in sink_paths.keys()]
+
+                                        # collecting all node indices found by the shortest-path calculations done above; should return two lists filled with every node index; why is  this important to do?
+                                        check_list_1 = []
+                                        check_list_2 = []
+                                        for i in nNodes_range:
+                                                check_list_1.extend([source_paths_list[i][-1]])
+                                                check_list_2.extend([sink_paths_list[i][-1]])
+
+                                        # identifying nodes that should be included in the suboptimal pathways analysis
+                                        node_list = []
+                                        if check_list_1 == check_list_2:
+                                                for i in nNodes_range:      # node i is the forced node; see if the sum of lengths between source and node i AND between sink and node i is less than the cutoff; if so, add the two paths (source to node i AND sink to node i) to the node list
+                                                        if source_lengths_list[i] + sink_lengths_list[i] <= cutoff:
+                                                                node_list.extend(source_paths_list[i][:])
+                                                                node_list.extend(sink_paths_list[i][:])
+                                        else:
+                                                print 'Paths do not match up. Something is wrong here...'
+                                                sys.exit()
+
+                                        unique_nodes = list(set(node_list))
+                                        unique_nodes.sort()
+                                        
+                                        print unique_nodes
+                                       
+                                        # simplifying our original correlation matrix to only include correlations between nodes that were identified above
+                                        node_length_range = range(len(unique_nodes))
+                                        new_matrix = np.zeros((nNodes,nNodes))
+                                        for i in node_length_range:
+                                                for j in node_length_range:
+                                                        new_matrix[unique_nodes[i]][unique_nodes[j]] = correlation_matrix[unique_nodes[i]][unique_nodes[j]]
+
+                                        temp_G = networkx.Graph(data=new_matrix,labels=unique_nodes)
+
+                                        # begin to study the suboptimal paths by building the pathways and calculating their lengths.
+                                        length = 0.0
+                                        paths_growing_out_from_source = [[length,source]]
+                                        full_paths_from_source_to_sink = []
+                                        
+                                        while len(paths_growing_out_from_source) > 0:
+                                                # ----------------------------------------
+                                                # starting expand_growing_paths_one_step
+                                                # ----------------------------------------
+                                                for i in range(len(paths_growing_out_from_source)):
+                                                        if paths_growing_out_from_source[i][0] > cutoff:
+                                                                paths_growing_out_from_source.pop(i)    # remove this path from the list
+                                                                break
+                                                        elif paths_growing_out_from_source[i][-1] == sink:
+                                                                full_paths_from_source_to_sink.append(paths_growing_out_from_source[i])
+                                                                paths_growing_out_from_source.pop(i)    # remove this path from the list
+                                                                break
+                                                        elif paths_growing_out_from_source[i][-1] != sink:
+                                                                node_neighbors = temp_G.neighbors(paths_growing_out_from_source[i][-1])
+                                                                for j in range(len(node_neighbors)):
+                                                                        if not node_neighbors[j] in paths_growing_out_from_source[i]:
+                                                                                temp = paths_growing_out_from_source[i][:]
+                                                                                temp.append(node_neighbors[j])
+                                                                                temp[0] += temp_G.edge[temp[-2]][temp[-1]]['weight']
+                                                                                paths_growing_out_from_source.insert((i+j+1),temp)
+                                                                paths_growing_out_from_source.pop(i)    # remove this path from the list
+                                                                break
+                                                        else:
+                                                                print 'Something is wrong.'
+                                                                sys.exit()
+
+                                                # ----------------------------------------
+                                                # ending expand_growing_paths_one_step
+                                                # ----------------------------------------
+                                        
+                                        full_paths_from_source_to_sink.sort()
+                                        temp_paths.extend([full_paths_from_source_to_sink[i] for i in range(len(full_paths_from_source_to_sink))])
+                                        print 'Done with path calc for this cutoff'
+                                        # ----------------------------------------
+                                        # ending get_paths_fixed_endpoints
+                                        # ----------------------------------------
+                # ----------------------------------------
+                # ending get_paths_between_multiple_endpoints
+                # ----------------------------------------
+                # ----------------------------------------
+                # starting remove_redundant_paths
+                # ----------------------------------------
+                if len(temp_paths) != 1:
+                        for i in range(len(temp_paths)-1):
+                                path1 = temp_paths[i]
+                                if not path1 is None:
+                                        for j in range(i+1,len(temp_paths)):
+                                                path2 = temp_paths[j]
+                                                if not path2 is None:
+                                                        if len(path1) == len(path2):
+                                                                pth1 = copy.deepcopy(path1[1:])
+                                                                pth2 = copy.deepcopy(path2[1:])
+                                                                if pth1[0] < path1[-1]:
+                                                                        pth1.reverse()
+                                                                if pth2[0] < path2[-1]:
+                                                                        pth2.reverse()
+                                                                if pth1 == pth2:
+                                                                        temp_paths[j] = None
+                        while None in temp_paths:
+                                temp_paths.remove(None)
+
+                # ----------------------------------------
+                # ending remove_redundant_paths
+                # ----------------------------------------
+                num_paths = len(temp_paths)
+                print num_paths, temp_paths
+                paths.extend(temp_paths)
+                
+                if num_paths < number_of_paths and cutoff > cutoff_yields_max_num_paths_below_target:
+                        cutoff_yields_max_num_paths_below_target = cutoff 
+                if num_paths > number_of_paths and cutoff < cutoff_yields_min_num_paths_above_target:
+                        cutoff_yields_min_num_paths_above_target = cutoff
+
+                print cutoff_yields_max_num_paths_below_target, cutoff_yields_min_num_paths_above_target, '\n'
+
+                cutoff += 0.1
+
+        if len(paths) != 1:
+                for i in range(len(paths)-1):
+                        path1 = paths[i]
+                        if not path1 is None:
+                                for j in range(i+1,len(paths)):
+                                        path2 = paths[j]
+                                        if not path2 is None:
+                                                if len(path1) == len(path2):
+                                                        pth1 = copy.deepcopy(path1[1:])
+                                                        pth2 = copy.deepcopy(path2[1:])
+                                                        if pth1[0] < path1[-1]:
+                                                                pth1.reverse()
+                                                        if pth2[0] < path2[-1]:
+                                                                pth2.reverse()
+                                                        if pth1 == pth2:
+                                                                paths[j] = None
+                                    
+        while None in paths:
+                paths.remove(None)
+
+        paths.sort() # sort the paths by length
+
+        if num_paths != number_of_paths: # so further refinement is needed
+                paths = paths[:number_of_paths]
+
+        return paths
 

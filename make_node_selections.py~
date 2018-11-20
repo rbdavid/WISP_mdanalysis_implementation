@@ -209,8 +209,9 @@ def make_nonstandard_selections(analysis_universe,resname,resid,output_file,sour
 			count +=1
 
 		# CREATING THE SLECTION FOR THE PHOSPHATE OF NUCLEIC RESIDUES
-		sel_string = "(resname %s and resid %s and name P OP1 OP2 O5') or (resid %s and name O3')" %(resname,resid,analysis_universe.residues[resid-1].resid) 
+		sel_string = "(resname %s and resid %s and name P OP1 OP2 O5') or (resid %s and name O3')" %(resname,resid,resid-1)
 		temp = analysis_universe.select_atoms(sel_string)
+                print temp.n_atoms
 		selection_list.append(temp)
 
                 node_string = '%s_%s_Phosphate' %(resname,resid)
