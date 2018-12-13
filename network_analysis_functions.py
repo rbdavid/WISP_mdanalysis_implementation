@@ -43,7 +43,7 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths):
         num_paths = 1
         path = [shortest_length]
         path.extend(shortest_path)
-        paths = [path]
+        paths = [path]      # paths is a list of lists, where each sublist holds the length and node indices for the respective path
 
         cutoff = shortest_length
 

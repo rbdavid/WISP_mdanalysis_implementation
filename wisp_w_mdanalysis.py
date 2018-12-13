@@ -16,9 +16,9 @@ import MDAnalysis
 
 config_file = sys.argv[1]
 
-necessary_parameters = ['output_directory','node_selection_file','trajectory_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths']
+necessary_parameters = ['output_directory','node_selection_file','trajectory_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','plotting_boolean']
 
-all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','summary_boolean','user_input_correlation_data','user_input_avg_node_node_distance_data','user_input_binary_contact_map_data','weight_by_avg_distance_boolean','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
+all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','plotting_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','summary_boolean','user_input_correlation_data','user_input_avg_node_node_distance_data','user_input_binary_contact_map_data','weight_by_avg_distance_boolean','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness','plotting_functions_file']
 
 # ----------------------------------------
 # FUNCTIONS: 
@@ -54,6 +54,7 @@ def config_parser(config_file):	# Function to take config file and create/fill t
         parameters['longest_path_rgb'] = (1.0,1.0,1.0)
         parameters['node_sphere_color_index'] = 34
         parameters['VMD_color_index_range'] = (35,1056)
+        parameters['plotting_functions_file'] = None
         parameters['summary_boolean'] = False 
 
 	# GRABBING PARAMETER VALUES FROM THE CONFIG FILE:
@@ -127,28 +128,49 @@ def main():
                 correlation_array = np.loadtxt(parameters['user_input_correlation_data'])
 
                 if parameters['weight_by_avg_distance_boolean']:
-                        avg_node_node_distances = np.loadtxt(parameters['user_input_avg_node_node_distance_data'])
+                        contact_map = np.loadtxt(parameters['user_input_avg_node_node_distance_data'])
                 else:
-                        binary_contact_map = np.loadtxt(parameters['user_input_binary_contact_map_data'])
+                        contact_map = np.loadtxt(parameters['user_input_binary_contact_map_data'])
 
         # ----------------------------------------
         # FUNCTIONALIZE THE CORRELATION MATRIX AND WEIGHTING THE FUNCTIONALIZED CORRELATION MATRIX BY THE CONTACT MAP
         # ----------------------------------------
-        if parameters['weight_by_avg_distance_boolean']:
-                func_corr_array = -np.log(np.fabs(correlation_array)) * avg_node_node_distances
-        else:
-                func_corr_array = -np.log(np.fabs(correlation_array)) * binary_contact_map
-
+        func_corr_array = -np.log(np.fabs(correlation_array)) * contact_map
         np.savetxt(parameters['output_directory'] + 'func_correlation_matrix.dat',func_corr_array)
         
         print 'Finished functionalizing and weighting the correlation matrix.'
         
         # ----------------------------------------
+        # PLOTTING DATA - CORRELATION AND CONTACT MAPS
+        # ----------------------------------------
+        if parameters['plotting_boolean']:
+                matrix_plot = parameters['output_directory'] + 'node_node_correlation_matrix.png'
+                plot_square_matrix(correlation_array,matrix_plot,axes_label = 'Node Index', cbar_label = 'Correlation', v_range = [-1.0,1.0], minor_ticks = 5, major_ticks = 50)
+
+                contact_map_plot = parameters['output_directory'] + 'node_node_contact_map.png'
+                plot_square_matrix(contact_map,contact_map_plot,axes_label = 'Node Index', cbar_label = r'Distance ($\AA$)', minor_ticks = 5, major_ticks = 50)
+
+                func_matrix_plot = parameters['output_directory'] + 'functionalized_node_node_correlation_matrix.png'
+                if parameters['weight_by_avg_distance_boolean']:
+                        plot_square_matrix(func_corr_array,func_matrix_plot,axes_label = 'Node Index', cbar_label = r'Correlation Distance ($\AA$)', minor_ticks = 5, major_ticks = 50)
+                else:
+                        plot_square_matrix(func_corr_array,func_matrix_plot,axes_label = 'Node Index', cbar_label = 'Correlation', minor_ticks = 5, major_ticks = 50)
+
+        # ----------------------------------------
         # COMPUTE THE ENSEMBLE OF PATHS THAT CONNECT THE SOURCE AND SINK RESIDUES 
         # ----------------------------------------
         paths = get_paths(func_corr_array, source_indices, sink_indices, parameters['number_of_paths'])
         print 'Finished calculating the pathways that connect the source and sink selections.'
-        ### NEED TO OUTPUT THE PATHS
+        
+        with open(parameters['output_directory'] + 'simply_formatted_paths.txt','w') as W:
+            W.write('# Pathway_Length Node_Indices (zero indexed)\n')
+            for path in paths:
+                    path_string = '%f ' %(path[0])
+                    for node in path[1:]:
+                            path_string += '%d ' %(node)
+                    path_string += '\n'
+
+                    W.write(path_string)
 
         # ----------------------------------------
         # CREATE THE VISUALIZATION STATES TO BE USED IN VMD 
@@ -158,6 +180,14 @@ def main():
         create_vis_state(parameters['visualization_frame_pdb'],selection_list,paths,parameters['output_directory'] + 'wisp_pathways_vis_state.vmd', node_sphere_radius = parameters['node_sphere_radius'], node_sphere_rgb = parameters['node_sphere_rgb'], shortest_path_radius = parameters['shortest_path_radius'], shortest_path_rgb = parameters['shortest_path_rgb'], longest_path_radius = parameters['longest_path_radius'], longest_path_rgb = parameters['longest_path_rgb'], node_sphere_color_index = parameters['node_sphere_color_index'], VMD_color_index_range = parameters['VMD_color_index_range'], VMD_resolution = parameters['VMD_resolution'], VMD_spline_smoothness = parameters['VMD_spline_smoothness'])
         print 'Finished creating the vis state file.'
         
+        # ----------------------------------------
+        # PLOTTING DATA - PATHWAYS SAMPLING BAR PLOTS
+        # ----------------------------------------
+        if parameters['plotting_boolean'] and len(paths) != 1:
+                length_frequency_plot = parameters['output_directory'] + 'path_length_frequency.png'
+                node_frequency_plot = parameters['output_directory'] + 'node_frequency.png'
+                paths_analysis_plotting(paths,source_indices,sink_indices,len(func_corr_array),length_frequency_plot,node_frequency_plot)
+
         # ----------------------------------------
         # OUTPUTTING SUMMARY INFORMATION
         # ----------------------------------------
@@ -177,8 +207,13 @@ config_parser(config_file)
 make_selections = importlib.import_module(parameters['node_selection_file'].split('.')[0],package=None).make_selections
 
 if parameters['trajectory_analysis_boolean']:
+        ### ADD OTHER TYPES OF NODE-NODE MATRICES THAT COULD BE USED TO ID PATHWAYS?
         correlation_trajectory_analysis = importlib.import_module(parameters['trajectory_functions_file'].split('.')[0],package=None).correlation_trajectory_analysis
         calc_contact_map = importlib.import_module(parameters['trajectory_functions_file'].split('.')[0],package=None).calc_contact_map
+
+if parameters['plotting_boolean']:
+        plot_square_matrix = importlib.import_module(parameters['plotting_functions_file'].split('.')[0],package=None).plot_square_matrix
+        paths_analysis_plotting = importlib.import_module(parameters['plotting_functions_file'].split('.')[0],package=None).paths_analysis_plotting
 
 get_paths = importlib.import_module(parameters['network_functions_file'].split('.')[0],package=None).get_paths
 
