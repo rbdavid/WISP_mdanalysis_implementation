@@ -33,7 +33,6 @@ def make_selections(analysis_universe,file_name,node_definition,selection_string
         source_index_list = []
         sink_index_list = []
         with open(file_name,'w') as f:
-
                 # ----------------------------------------
                 # SUBSTRATE SELECTION - CENTER OF MASS OF RESIDUES
                 # ----------------------------------------
