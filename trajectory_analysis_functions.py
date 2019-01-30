@@ -35,7 +35,7 @@ def RMSD(x,y,n):
 	return (np.sum(np.square(x-y))/n)**0.5	# the MSD should never be negative, so using **0.5 rather than np.sqrt is safe
 
 # ----------------------------------------
-def alignment_averaging_and_covariance_analysis(universe, alignment_selection, selection_list, trajectory_list, output_directory, convergence_threshold = 1E-5, maximum_num_iterations = 100, step = 1)
+def alignment_averaging_and_covariance_analysis(universe, alignment_selection, selection_list, trajectory_list, output_directory, convergence_threshold = 1E-5, maximum_num_iterations = 100, step = 1):
 	"""
 	"""
 	
@@ -149,7 +149,7 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
                         for j in nCartCoords_range[i:]:
                                 xyz_node_covariance[i,j] += flatten_positions[i]*flatten_positions[j]
 
-        flatten_avg_positions = average_matrix.flatten()
+        flatten_avg_positions = avg_pos_Nodes.flatten()
         xyz_node_variance /= nSteps
         xyz_node_variance -= flatten_avg_positions**2
         xyz_node_covariance /= nSteps

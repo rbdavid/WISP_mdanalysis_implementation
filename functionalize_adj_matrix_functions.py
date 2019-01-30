@@ -28,9 +28,12 @@ def generalized_correlation_coefficient_calc(adjacency_matrix,output_directory, 
 	"""
 	"""
         rMI_file_name = output_directory + 'gen_corr_coefficients.dat'
+        functionalized_rMI_file_name = output_directory + 'func_gen_corr_coefficients.dat'
         rMI = np.sqrt(1.0 - np.exp(-2.0*adjacency_matrix/3))
+        functionalized_rMI = -np.log(rMI)
         np.savetxt(rMI_file_name,rMI)
-        return rMI
+        np.savetxt(functionalized_rMI_file_name,functionalized_rMI)
+        return functionalized_rMI
 
 # ----------------------------------------
 def do_nothing(adjacency_matrix,output_directory, contact_map = None):

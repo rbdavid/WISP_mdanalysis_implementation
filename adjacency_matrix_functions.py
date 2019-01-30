@@ -91,7 +91,7 @@ def linear_mutual_information_analysis(cartesian_covariance_matrix, cartesian_va
                         jIndex = j*3    # i index assuming that each node has d values sequentially populating the covar matrix 
                         temp = np.linalg.det(cartesian_covariance_matrix[iIndex:iIndex+3,iIndex:iIndex+3])*np.linalg.det(cartesian_covariance_matrix[jIndex:jIndex+3,jIndex:jIndex+3])  # compute numerator in argument of log of linear MI equation
                         idx = np.append(np.arange(iIndex,iIndex+3,1),np.arange(jIndex,jIndex+3,1))  # make list of indeces for the 2d X 2d C_ij matrix
-                        MI[i,j] = MI[j,i] = 0.5*np.log(temp/np.linalg.det(xyz_node_covariance[np.ix_(idx,idx)]))    # compute linear MI (eq 10 of Grubmuller 2005)
+                        MI[i,j] = MI[j,i] = 0.5*np.log(temp/np.linalg.det(cartesian_covariance_matrix[np.ix_(idx,idx)]))    # compute linear MI (eq 10 of Grubmuller 2005)
 
         MI += np.diag(np.full(nNodes,np.inf))
 

@@ -18,7 +18,7 @@ config_file = sys.argv[1]
 
 necessary_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths']
 
-all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_adjacency_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
+all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_cartesian_covariance_matrix','user_input_cartesian_variance_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
 
 # ----------------------------------------
 # FUNCTIONS: 
@@ -48,7 +48,8 @@ def config_parser(config_file):	# Function to take config file and create/fill t
         parameters['trajectory_step'] = 1
         parameters['contact_map_distance_cutoff'] = 99999.9
         parameters['which_contact_map'] = 'average contact map'
-        parameters['user_input_adjacency_matrix'] = None
+        parameters['user_input_cartesian_covariance_matrix'] = None
+        parameters['user_input_cartesian_variance_matrix'] = None
         parameters['user_input_contact_map'] = None
         parameters['node_sphere_radius'] = 0.0
         parameters['node_sphere_rgb'] = (1.0,1.0,1.0)
@@ -122,7 +123,7 @@ def main():
                 # ALIGN THE NODE TRAJECTORY TO THE AVERAGE NODE POSITIONS; ITERATIVE AVERAGE METHOD
                 # ----------------------------------------
                 print 'Beginning trajectory analysis.'
-                Node_trajectory, avg_Node_positions, Node_cart_covariance, Node_cart_variance = alignment_averaging_and_covariance_analysis(u,parameters['alignment_selection'],selection_list,parameters['traj_list'], output_directory, step = parameters['trajectory_step'])
+                Node_trajectory, avg_Node_positions, Node_cart_covariance, Node_cart_variance = alignment_averaging_and_covariance_analysis(u,parameters['alignment_selection'],selection_list,parameters['traj_list'],parameters['output_directory'], step = parameters['trajectory_step'])
 
                 # ----------------------------------------
                 # CONTACT MAP CALCULATION
@@ -239,24 +240,24 @@ if parameters['trajectory_analysis_boolean']:
 # which adjacency matrix?
 if parameters['adjacency_matrix_style'].upper() == 'PEARSON CORRELATION':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).pearson_correlation_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['functionalize_adjacency_matrix_functions_file'].split('.')[0],package=None).func_pearson_correlation
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_pearson_correlation
 
 elif parameters['adjacency_matrix_style'].upper() in ('LMI','LINEAR MUTUAL INFORMATION'):
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).linear_mutual_information_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['functionalize_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
 
 ## these are not yet coded up. Will error out if this parameter is set to any of the below values.
 elif parameters['adjacency_matrix_style'].upper() == 'MUTUAL INFORMATION':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).mutual_information_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['functionalize_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
 
 elif parameters['adjacency_matrix_style'].upper() in ('REACH','COVARIANCE HESSIAN'):
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).REACH_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['functionalize_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
 
 elif parameters['adjacency_matrix_style'].upper() == 'HENM':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['functionalize_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
 
 else:
         print 'The user has not read in an accepted style of adjacency matrix. Current options are pearson correlation coefficient matrix (denoted by PEARSON CORRELATION), linear mutual information (denoted by LMI or LINEAR MUTUAL INFORMATION), covariance hessian or reach (denoted by COVARIANCE HESSIAN or REACH), or hetero elastic network model (denoted by HENM).'

@@ -61,10 +61,10 @@ def make_selections(analysis_universe,file_name,node_definition,selection_string
                 # SUBSTRATE SELECTION - ATOMS   ### NEED TO DEBUG/CHECK THIS CODE
                 # ----------------------------------------
                 elif node_definition.upper() == 'ATOMIC':
-                        u_substrate_selection = analysis_universe.select_atoms(selection_string)
+                        substrate_selection = analysis_universe.select_atoms(selection_string)
                         nAtoms_range = range(substrate_selection.n_atoms)
                         for i in nAtoms_range:
-                                temp = u_substrate_selection.residues[i].atoms
+                                temp = substrate_selection.residues[i].atoms
                                 selection_list.append(temp)
 
                                 temp_resname = temp.resnames[0]
