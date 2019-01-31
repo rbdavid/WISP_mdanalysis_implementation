@@ -73,7 +73,10 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
                         all_pos_Align.append(u_alignment.positions)
                         temp = []
                         for i in nNodes_range:
-                                temp.append(selection_list[i].center_of_mass())
+                                if str(type(selection_list[i])) == "<class 'MDAnalysis.core.groups.Atom'>":
+                                        temp.append(selection_list[i].position)
+                                else:
+                                        temp.append(selection_list[i].center_of_mass())
                         all_pos_Nodes.append(temp)
 
         print 'Analyzed', nSteps, 'frames.'
@@ -92,8 +95,8 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         nSteps_range = range(nSteps)
         print 'Beginning the iterative process of aligning to the average alignment positions, calculating new positions, and recalculating the average positions'
         while residual > convergence_threshold and iteration < maximum_num_iterations:
-                temp_avg_pos_Align = np.zeros((nAlign,3),dtype=np.float32)
-                temp_avg_pos_Nodes = np.zeros((nNodes,3),dtype=np.float32)
+                temp_avg_pos_Align = np.zeros((nAlign,3),dtype=np.float64)
+                temp_avg_pos_Nodes = np.zeros((nNodes,3),dtype=np.float64)
 
                 for ts in nSteps_range:
                         
@@ -140,24 +143,15 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         # CALC VARIANCE AND COVARIANCE OF CARTESIAN COORDINATES
         # ----------------------------------------
         print 'Beginning cartesian covariance analysis.'
-        xyz_node_variance = np.zeros((nCartCoords),dtype=np.float64)
         xyz_node_covariance = np.zeros((nCartCoords,nCartCoords),dtype=np.float64)
         for ts in nSteps_range:
                 flatten_positions = all_pos_Nodes[ts].flatten()
-                for i in nCartCoords_range:
-                        xyz_node_variance[i] += flatten_positions[i]**2
-                        for j in nCartCoords_range[i:]:
-                                xyz_node_covariance[i,j] += flatten_positions[i]*flatten_positions[j]
+                xyz_node_covariance += np.dot(flatten_positions.reshape(nCartCoords,1),flatten_positions.reshape(1,nCartCoords))
 
-        flatten_avg_positions = avg_pos_Nodes.flatten()
-        xyz_node_variance /= nSteps
-        xyz_node_variance -= flatten_avg_positions**2
         xyz_node_covariance /= nSteps
-
-        for i in nCartCoords_range:
-                for j in nCartCoords_range[i:]:
-                        xyz_node_covariance[i,j] -= flatten_avg_positions[i]*flatten_avg_positions[j]
-                        xyz_node_covariance[j,i] = xyz_node_covariance[i,j]
+        flatten_avg_positions = avg_pos_Nodes.flatten()
+        xyz_node_covariance -= np.dot(flatten_avg_positions.reshape(nCartCoords,1),flatten_avg_positions.reshape(1,nCartCoords))
+        xyz_node_variance = np.diagonal(xyz_node_covariance)
         
         print 'Finished calculating the variance and covariance of node cartesian coordinates. Outputting the two arrays to file. The covariance matrix file can be reused in subsequent analyses of various adjacency matrices, assuming studying the same range of frames, selections, etc.'
 
@@ -170,7 +164,7 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         # ----------------------------------------
         # RETURNING THE ALIGNED NODE TRAJECTORY, AVERAGE NODE POSITIONS, COVARIANCE AND VARIANCE OF NODE CARTESIAN COORDINATES
         # ----------------------------------------
-        return all_pos_Nodes, avg_pos_Nodes, xyz_node_covariance, xyz_node_variance
+        return all_pos_Nodes, avg_pos_Nodes, xyz_node_covariance
 
 # ----------------------------------------
 def calc_contact_map(trajectory_data,distance_cutoff, output_directory):

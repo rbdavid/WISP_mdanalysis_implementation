@@ -7,21 +7,21 @@ import numpy as np
 from numpy.linalg import *
 
 # ----------------------------------------
-def pearson_correlation_analysis(cartesian_covariance_matrix, cartesian_variance_matrix, output_directory):
+def pearson_correlation_analysis(cartesian_covariance_matrix, output_directory):
 	"""
 	"""
 
         # ----------------------------------------
         # IO NAMING VARIABLES
         # ----------------------------------------
-        variance_file_name = output_directory + 'displacement_variance.dat'  
-        covariance_file_name = output_directory + 'displacement_covariance.dat'  
-        correlation_file_name = output_directory + 'displacement_correlation.dat'  
+        variance_file_name = output_directory + 'node_variance.dat'  
+        covariance_file_name = output_directory + 'node_covariance.dat'  
+        correlation_file_name = output_directory + 'node_correlation.dat'  
 
         # ----------------------------------------
         # ASSIGNING TRAJECTORY VARIABLES
         # ----------------------------------------
-        nCartCoords = cartesian_variance_matrix.shape[0]
+        nCartCoords = cartesian_covariance_matrix.shape[0]
         if nCartCoords%3 != 0:
                 print 'The user has read in a covariance array that does not have the expected number of elements. Please check the file.'
                 sys.exit()
@@ -36,6 +36,7 @@ def pearson_correlation_analysis(cartesian_covariance_matrix, cartesian_variance
         node_covariance = np.zeros((nNodes,nNodes),dtype=np.float64)
         node_correlation = np.zeros((nNodes,nNodes),dtype=np.float64)
 
+        cartesian_variance_matrix = np.diagonal(cartesian_covariance_matrix)
         for i in nNodes_range:
                 iIndex = i*3
                 node_variance[i] = np.sum(cartesian_variance_matrix[iIndex:iIndex+3])
@@ -60,7 +61,7 @@ def pearson_correlation_analysis(cartesian_covariance_matrix, cartesian_variance
         return node_correlation
 
 # ----------------------------------------
-def linear_mutual_information_analysis(cartesian_covariance_matrix, cartesian_variance_matrix,output_directory):
+def linear_mutual_information_analysis(cartesian_covariance_matrix,output_directory):
 	"""
 	"""
 
@@ -68,12 +69,11 @@ def linear_mutual_information_analysis(cartesian_covariance_matrix, cartesian_va
         # IO NAMING VARIABLES
         # ----------------------------------------
         linear_mutual_information_file_name = output_directory + 'linear_mutual_information.dat'
-                
 
         # ----------------------------------------
         # ASSIGNING TRAJECTORY VARIABLES
         # ----------------------------------------
-        nCartCoords = cartesian_variance_matrix.shape[0]
+        nCartCoords = cartesian_covariance_matrix.shape[0]
         if nCartCoords%3 != 0:
                 print 'The user has read in a covariance array that does not have the expected number of elements. Please check the file.'
                 sys.exit()
@@ -86,17 +86,17 @@ def linear_mutual_information_analysis(cartesian_covariance_matrix, cartesian_va
         # ----------------------------------------
         MI = np.zeros((nNodes,nNodes),dtype=np.float64)
         for i in nNodes_range[:-1]:
-                iIndex = i*3    # i index assuming that each node has d values sequentially populating the covar matrix 
+                iIndex = i*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
                 for j in nNodes_range[i+1:]:
-                        jIndex = j*3    # i index assuming that each node has d values sequentially populating the covar matrix 
+                        jIndex = j*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
                         temp = np.linalg.det(cartesian_covariance_matrix[iIndex:iIndex+3,iIndex:iIndex+3])*np.linalg.det(cartesian_covariance_matrix[jIndex:jIndex+3,jIndex:jIndex+3])  # compute numerator in argument of log of linear MI equation
                         idx = np.append(np.arange(iIndex,iIndex+3,1),np.arange(jIndex,jIndex+3,1))  # make list of indeces for the 2d X 2d C_ij matrix
                         MI[i,j] = MI[j,i] = 0.5*np.log(temp/np.linalg.det(cartesian_covariance_matrix[np.ix_(idx,idx)]))    # compute linear MI (eq 10 of Grubmuller 2005)
 
-        MI += np.diag(np.full(nNodes,np.inf))
+        MI += np.diagflat(np.full(nNodes,np.inf))
 
         # ----------------------------------------
-        # SAVE VARIANCE AND COVARIANCE OF CARTESIAN COORDINATES AS WELL AS THE LINEAR MUTUAL INFORMATION TO FILE
+        # SAVE LINEAR MUTUAL INFORMATION TO FILE
         # ----------------------------------------
         np.savetxt(linear_mutual_information_file_name,MI)
 

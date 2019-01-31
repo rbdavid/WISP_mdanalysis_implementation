@@ -64,11 +64,10 @@ def make_selections(analysis_universe,file_name,node_definition,selection_string
                         substrate_selection = analysis_universe.select_atoms(selection_string)
                         nAtoms_range = range(substrate_selection.n_atoms)
                         for i in nAtoms_range:
-                                temp = substrate_selection.residues[i].atoms
+                                temp = substrate_selection.atoms[i]
                                 selection_list.append(temp)
-
-                                temp_resname = temp.resnames[0]
-                                temp_resid = temp.resids[0]
+                                temp_resname = temp.resname
+                                temp_resid = temp.resid
                                 node_string = '%s_%s' %(temp_resname,temp_resid)
                                 if node_string in source_selection_strings:
                                         f.write("%02d   %s   %s # SOURCE\n" %(count,temp_resname,temp_resid))

@@ -35,9 +35,13 @@ def create_vis_state(visualization_frame_pdb,selection_list,paths,vis_state_file
         node_resids = []
         node_positions = []
         for node in nodes_used:
-                for resid in np.unique(selection_list[node].resids):
-                        node_resids.append(int(resid))
-                node_positions.append(selection_list[node].center_of_mass())
+                if str(type(selection_list[node])) == "<class 'MDAnalysis.core.groups.Atom'>":
+                        node_resids.append(selection_list[node].resid)
+                        node_positions.append(selection_list[node].position)
+                else:
+                        for resid in np.unique(selection_list[node].resids):
+                                node_resids.append(int(resid))
+                        node_positions.append(selection_list[node].center_of_mass())
 
         node_resids = list(set(node_resids))
         node_vmd_selection = 'resid'
@@ -104,10 +108,14 @@ def create_vis_state(visualization_frame_pdb,selection_list,paths,vis_state_file
                         y_vals = []
                         z_vals = []
                         for node in paths[i][1:]:
-                                com = selection_list[node].center_of_mass()
-                                x_vals.append(com[0])
-                                y_vals.append(com[1])
-                                z_vals.append(com[2])
+                                if str(type(selection_list[node])) == "<class 'MDAnalysis.core.groups.Atom'>":
+                                        pos = selection_list[node].position
+                                else:
+                                        pos = selection_list[node].center_of_mass()
+                                
+                                x_vals.append(pos[0])
+                                y_vals.append(pos[1])
+                                z_vals.append(pos[2])
                         
                         try:
                                 degree = len(x_vals)

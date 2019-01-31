@@ -18,7 +18,7 @@ config_file = sys.argv[1]
 
 necessary_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths']
 
-all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_cartesian_covariance_matrix','user_input_cartesian_variance_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
+all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_cartesian_covariance_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
 
 # ----------------------------------------
 # FUNCTIONS: 
@@ -49,7 +49,6 @@ def config_parser(config_file):	# Function to take config file and create/fill t
         parameters['contact_map_distance_cutoff'] = 99999.9
         parameters['which_contact_map'] = 'average contact map'
         parameters['user_input_cartesian_covariance_matrix'] = None
-        parameters['user_input_cartesian_variance_matrix'] = None
         parameters['user_input_contact_map'] = None
         parameters['node_sphere_radius'] = 0.0
         parameters['node_sphere_rgb'] = (1.0,1.0,1.0)
@@ -123,7 +122,7 @@ def main():
                 # ALIGN THE NODE TRAJECTORY TO THE AVERAGE NODE POSITIONS; ITERATIVE AVERAGE METHOD
                 # ----------------------------------------
                 print 'Beginning trajectory analysis.'
-                Node_trajectory, avg_Node_positions, Node_cart_covariance, Node_cart_variance = alignment_averaging_and_covariance_analysis(u,parameters['alignment_selection'],selection_list,parameters['traj_list'],parameters['output_directory'], step = parameters['trajectory_step'])
+                Node_trajectory, avg_Node_positions, Node_cart_covariance = alignment_averaging_and_covariance_analysis(u,parameters['alignment_selection'],selection_list,parameters['traj_list'],parameters['output_directory'], step = parameters['trajectory_step'], convergence_threshold = 1E-5)
 
                 # ----------------------------------------
                 # CONTACT MAP CALCULATION
@@ -136,7 +135,7 @@ def main():
                         elif parameters['which_contact_map'].upper() == 'BINARY CONTACT MAP':
                                 contact_map = binary_contact_map
                         else:
-                                print "User has defined which contact map should be used in subsequent weighting of the adjacency matrix. Acceptable values for the 'which_contact_map' parameter are 'AVERAGE CONTACT MAP' or 'BINARY CONTACT MAP'."
+                                print "User has not defined which contact map should be used in subsequent weighting of the adjacency matrix. Acceptable values for the 'which_contact_map' parameter are 'AVERAGE CONTACT MAP' or 'BINARY CONTACT MAP'."
                                 sys.exit()
 
         # ----------------------------------------
@@ -145,15 +144,17 @@ def main():
         else:
                 print 'Loading in the user specified data files.'
                 Node_cart_covariance = np.loadtxt(parameters['user_input_cartesian_covariance_matrix'])
-                Node_cart_variance = np.loadtxt(parameters['user_input_cartesian_variance_matrix'])
 
                 if parameters['weight_by_contact_map_boolean']:
                         contact_map = np.loadtxt(parameters['user_input_contact_map'])  # can be either binary or average distances
+                        if Node_cart_covariance.shape != contact_map.shape:
+                                print 'User has read in a contact map that does not have the same shape as the cartesian covariance data.'
+                                sys.exit()
 
         # ----------------------------------------
         # CALC THE DESIRED ADJACENCY MATRIX 
         # ----------------------------------------
-        adjacency_matrix = adjacency_matrix_analysis(Node_cart_covariance,Node_cart_variance,parameters['output_directory'])
+        adjacency_matrix = adjacency_matrix_analysis(Node_cart_covariance,parameters['output_directory'])
         print 'Finished calculating the adjacency matrix (' + parameters['adjacency_matrix_style'] + ').'
 
         # ----------------------------------------
