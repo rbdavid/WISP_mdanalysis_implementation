@@ -58,7 +58,7 @@ def make_selections(analysis_universe,file_name,node_definition,selection_string
                                 count += 1
 
                 # ----------------------------------------
-                # SUBSTRATE SELECTION - ATOMS   ### NEED TO DEBUG/CHECK THIS CODE
+                # SUBSTRATE SELECTION - ATOMS
                 # ----------------------------------------
                 elif node_definition.upper() == 'ATOMIC':
                         substrate_selection = analysis_universe.select_atoms(selection_string)

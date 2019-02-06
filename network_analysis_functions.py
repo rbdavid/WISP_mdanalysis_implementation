@@ -9,15 +9,15 @@ import networkx
 
 ######################### To Identify Paths ##############################
 
-def get_paths(correlation_matrix,sources,sinks,number_of_paths):
+def get_paths(adjacency_matrix,sources,sinks,number_of_paths):
         """
         """
 
-        nNodes = len(correlation_matrix) 
+        nNodes = len(adjacency_matrix) 
         nNodes_range = range(nNodes)
 
         #populate graph nodes and weighted edges
-        G = networkx.Graph(data = correlation_matrix)
+        G = networkx.Graph(data = adjacency_matrix)
 
         # ----------------------------------------
         # SHORTEST PATH CALCULATION
@@ -30,7 +30,7 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths):
                                 short_path = networkx.dijkstra_path(G,source,sink,weight='weight')
                                 length = 0
                                 for t in range(len(short_path)-1):
-                                        length += correlation_matrix[short_path[t],short_path[t+1]]
+                                        length += adjacency_matrix[short_path[t],short_path[t+1]]
                                 if length < shortest_length:
                                         shortest_length = length
                                         shortest_path = short_path
@@ -103,7 +103,7 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths):
                                         new_matrix = np.zeros((nNodes,nNodes))
                                         for i in node_length_range:
                                                 for j in node_length_range:
-                                                        new_matrix[unique_nodes[i]][unique_nodes[j]] = correlation_matrix[unique_nodes[i]][unique_nodes[j]]
+                                                        new_matrix[unique_nodes[i]][unique_nodes[j]] = adjacency_matrix[unique_nodes[i]][unique_nodes[j]]
 
                                         temp_G = networkx.Graph(data=new_matrix,labels=unique_nodes)
 

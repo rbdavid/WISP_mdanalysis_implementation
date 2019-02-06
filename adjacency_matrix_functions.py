@@ -7,7 +7,7 @@ import numpy as np
 from numpy.linalg import *
 
 # ----------------------------------------
-def pearson_correlation_analysis(cartesian_covariance_matrix, output_directory):
+def pearson_correlation_analysis(cartesian_covariance_matrix,output_directory):
 	"""
 	"""
 

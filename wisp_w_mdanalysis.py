@@ -161,11 +161,11 @@ def main():
         # FUNCTIONALIZE THE ADJACENCY MATRIX
         # ----------------------------------------
         if parameters['weight_by_contact_map_boolean']:
-                funcionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,contact_map = contact_map, output_directory = parameters['output_directory'])
+                funcionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,parameters['output_directory'], contact_map = contact_map, Lambda = parameters['lambda'])
         else:
-                funcionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix, output_directory = parameters['output_directory'])
+                funcionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,parameters['output_directory'])
        
-        print 'Finished functionalizing and weighting the correlation matrix.'
+        print 'Finished functionalizing and weighting the adjacency matrix.'
         
         ## ----------------------------------------
         ## PLOTTING DATA - CORRELATION AND CONTACT MAPS
@@ -247,18 +247,17 @@ elif parameters['adjacency_matrix_style'].upper() in ('LMI','LINEAR MUTUAL INFOR
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).linear_mutual_information_analysis
         functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
 
-## these are not yet coded up. Will error out if this parameter is set to any of the below values.
 elif parameters['adjacency_matrix_style'].upper() == 'MUTUAL INFORMATION':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).mutual_information_analysis
         functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
 
 elif parameters['adjacency_matrix_style'].upper() in ('REACH','COVARIANCE HESSIAN'):
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).REACH_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_k_matrix
 
 elif parameters['adjacency_matrix_style'].upper() == 'HENM':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_k_matrix
 
 else:
         print 'The user has not read in an accepted style of adjacency matrix. Current options are pearson correlation coefficient matrix (denoted by PEARSON CORRELATION), linear mutual information (denoted by LMI or LINEAR MUTUAL INFORMATION), covariance hessian or reach (denoted by COVARIANCE HESSIAN or REACH), or hetero elastic network model (denoted by HENM).'

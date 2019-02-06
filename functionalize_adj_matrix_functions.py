@@ -16,7 +16,7 @@ def func_pearson_correlation(adjacency_matrix,output_directory, contact_map = No
         functionalized_correlation_file_name = output_directory + 'func_pearson_correlation.dat'
         functionalized_correlation = -np.log(np.fabs(adjacency_matrix))
         
-        if contact_map != None:
+        if type(contact_map) != NoneType:
                 functionalized_correlation *= contact_map
 
         np.savetxt(functionalized_correlation_file_name,functionalized_correlation)
@@ -33,7 +33,7 @@ def generalized_correlation_coefficient_calc(adjacency_matrix,output_directory, 
 
         rMI = np.sqrt(1.0 - np.exp(-2.0*adjacency_matrix/3))
        
-        if contact_map != None and Lambda != None:
+        if type(contact_map) != NoneType and type(Lambda) != NoneType:
                 print 'Applying a node-node distance-dependent exponential decay to the generalized correlation coefficient matrix (r_{MI}). The exponential damping factor (%.3f angstroms) is being used. This damping propogates into the functionalized adjacency matrix that will be used for pathway-finding analysis.'
                 for i in range(rMI.shape[0]):
                         for j in range(rMI.shape[0]):
@@ -46,7 +46,26 @@ def generalized_correlation_coefficient_calc(adjacency_matrix,output_directory, 
         return functionalized_rMI
 
 # ----------------------------------------
-def do_nothing(adjacency_matrix,output_directory, contact_map = None):
+def func_k_matrix(adjacency_matrix,output_directory, contact_map = None, Lambda = None):
+	"""
+	"""
+        functionalized_k_matrix_file_name = output_directory + 'func_k_matrix.dat'
+        
+        nNodes = adjacency_matrix.shape[0]
+        nNodes_range = range(nNodes)
+        sum_k_matrix = np.sum(adjacency_matrix,axis=0)
+        
+        functionalized_k_matrix = np.zeros((nNodes,nNodes),dtype=np.float64)
+        
+        for i in nNodes_range:
+                for j in nNodes_range:
+                        functionalized_k_matrix[i,j] = -np.log(adjacency_matrix[i,j]/np.sqrt(sum_k_matrix[i]*sum_k_matrix[j]))
+
+        np.savetxt(functionalized_k_matrix_file_name,functionalized_k_matrix)
+        return functionalized_k_matrix
+
+# ----------------------------------------
+def do_nothing(adjacency_matrix,output_directory, contact_map = None, Lambda = None):
 	"""
 	"""
         return adjacency_matrix

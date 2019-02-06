@@ -66,7 +66,6 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
                         if temp_length > longest_length:
                                 longest_length = temp_length
                                 longest_path = long_path
-
         print 'Longest pathway information:', longest_length, longest_path
 
         # ----------------------------------------
@@ -82,16 +81,24 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
         # ----------------------------------------
         # prepping node lists to search for pathways through... this was originally being done within each iteration of the while loop but should only need to be done once!
         # ----------------------------------------
-        
+       
+
+
+
+
+        ### THIS CODE ASSUMES THAT SOURCE IS A SINGLE INDEX... NOT GONNA WORK FOR MULTIPLE SOURCES OR SINKS; TO FIX THIS... CREATE A LIST OF LISTS WHILE LOOPING THROUGH EACH SOURCE/SINK (INDIVIDUALLY)
         # measure shortest paths between source/sink nodes to all other nodes; based on the original G graph
         source_lengths, source_paths = networkx.single_source_dijkstra(G,source,target=None,cutoff=None,weight='weight')
         sink_lengths, sink_paths = networkx.single_source_dijkstra(G,sink,target=None,cutoff=None,weight='weight')
-
         # converting networkx results from dictionaries to lists
         source_lengths_list = [source_lengths[key] for key in source_lengths.keys()]
         source_paths_list = [source_paths[key] for key in source_paths.keys()]
         sink_lengths_list = [sink_lengths[key] for key in sink_lengths.keys()]
         sink_paths_list = [sink_paths[key] for key in sink_paths.keys()]
+
+
+
+
 
         # ----------------------------------------
         # first step, keep incrementing a little until you have more than the desired number of paths
