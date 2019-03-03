@@ -10,7 +10,7 @@ import time
 
 ######################### To Identify Paths ##############################
 
-def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_percent_increase_cutoff=0.001):
+def get_paths(correlation_matrix,sources,sinks,number_of_paths,cutoff_increment=0.1):
         """
         """
 
@@ -26,8 +26,8 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
         shortest_length = 99999999.999
         shortest_path = []
         for source in sources:
-                # killing job if instances a node is found in both the source and sink lists.
-                if source in sinks:    
+                # killing job if a node is found in both the source and sink lists.
+                if source in sinks:
                         print 'A source node (%d) is also in the sink node list. This will return trivial results and is not interesting. Killing Job...' %(source)
                         sys.exit()
 
@@ -52,53 +52,33 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
         paths = [path]      # paths is a list of lists, where each sublist holds the length and node indices for the respective paths
 
         # ----------------------------------------
-        # LONGEST PATH CALCULATION  ### the current algorithm used in this section is bs... will likely always find the direct source-sink path as the longest path.
-        # ----------------------------------------
-        temp_G = networkx.Graph(data=(-correlation_matrix+np.max(correlation_matrix)))  # edge weights are the negative of their original values; :. edges with the long distances are short; use dijkstra algorithm to find the shortest path in this upside-down representation of our original graph 
-        longest_length = 0.0
-        longest_path = []
-        for source in sources:
-                for sink in sinks:
-                        long_path = networkx.dijkstra_path(temp_G,source,sink,weight='weight')
-                        temp_length = 0
-                        for t in range(len(long_path)-1):
-                                temp_length += correlation_matrix[long_path[t],long_path[t+1]]  # sum up the right-side up correlation_matrix values to calculate the true distance for the longest path
-                        if temp_length > longest_length:
-                                longest_length = temp_length
-                                longest_path = long_path
-        print 'Longest pathway information:', longest_length, longest_path
-
-        # ----------------------------------------
         # SUBOPTIMAL PATHS CALCULATION
         # ----------------------------------------
         cutoff = shortest_length
-        cutoff_iteration = (longest_length - shortest_length)*user_defined_percent_increase_cutoff
 
-        print cutoff_iteration
-       
         temp_file = open('temp.dat','w',1)
 
         # ----------------------------------------
         # prepping node lists to search for pathways through... this was originally being done within each iteration of the while loop but should only need to be done once!
-        # ----------------------------------------
-       
-
-
-
-
-        ### THIS CODE ASSUMES THAT SOURCE IS A SINGLE INDEX... NOT GONNA WORK FOR MULTIPLE SOURCES OR SINKS; TO FIX THIS... CREATE A LIST OF LISTS WHILE LOOPING THROUGH EACH SOURCE/SINK (INDIVIDUALLY)
         # measure shortest paths between source/sink nodes to all other nodes; based on the original G graph
-        source_lengths, source_paths = networkx.single_source_dijkstra(G,source,target=None,cutoff=None,weight='weight')
-        sink_lengths, sink_paths = networkx.single_source_dijkstra(G,sink,target=None,cutoff=None,weight='weight')
-        # converting networkx results from dictionaries to lists
-        source_lengths_list = [source_lengths[key] for key in source_lengths.keys()]
-        source_paths_list = [source_paths[key] for key in source_paths.keys()]
-        sink_lengths_list = [sink_lengths[key] for key in sink_lengths.keys()]
-        sink_paths_list = [sink_paths[key] for key in sink_paths.keys()]
+        # ----------------------------------------
+        
+        ### NEED TO CHECK THAT THE DATA STRUCTURE IS AS EXPECTED
+        source_lengths_list = []
+        source_paths_list = []
+        for source in sources:
+                source_lengths, source_paths = networkx.single_source_dijkstra(G,source,target=None,cutoff=None,weight='weight')
+                # converting networkx results from dictionaries to lists
+                source_lengths_list.append([source_lengths[key] for key in source_lengths.keys()])
+                source_paths_list.append([source_paths[key] for key in source_paths.keys()])
 
-
-
-
+        sink_lengths_list = []
+        sink_paths_list = []
+        for sink in sinks:
+                sink_lengths, sink_paths = networkx.single_source_dijkstra(G,sink,target=None,cutoff=None,weight='weight')
+                # converting networkx results from dictionaries to lists
+                sink_lengths_list = [sink_lengths[key] for key in sink_lengths.keys()]
+                sink_paths_list = [sink_paths[key] for key in sink_paths.keys()]
 
         # ----------------------------------------
         # first step, keep incrementing a little until you have more than the desired number of paths
@@ -112,13 +92,15 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
                 # ----------------------------------------
                 temp_paths = []
                 for source in sources:
+                        source_index = np.argwhere(sources == source)[0][0]
                         for sink in sinks:
+                                sink_index = np.argwhere(sinks == sink)[0][0]
                                 # identifying nodes that should be included in the suboptimal pathways analysis for the given cutoff
                                 node_list = []
                                 for i in nNodes_range:      # assumes all nodes are potential pathway nodes. node i is the forced node; see if the sum of lengths between source and node i AND between sink and node i is less than the cutoff; if so, add the nodes observed in both paths (source to node i AND sink to node i) to the node list
-                                        if source_lengths_list[i] + sink_lengths_list[i] <= cutoff:
-                                                node_list.extend(source_paths_list[i][:])
-                                                node_list.extend(sink_paths_list[i][:])
+                                        if source_lengths_list[source_index][i] + sink_lengths_list[sink_index][i] <= cutoff:
+                                                node_list.extend(source_paths_list[source_index][i])
+                                                node_list.extend(sink_paths_list[sink_index][i])
 
                                 unique_nodes = list(set(node_list))
                                 unique_nodes.sort()
@@ -157,7 +139,7 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
                                                                         temp = paths_growing_out_from_source[i][:]
                                                                         temp.append(node_neighbors[j])
                                                                         temp[0] += temp_G.edge[temp[-2]][temp[-1]]['weight']
-                                                                        paths_growing_out_from_source.insert((i+j+1),temp)
+                                                                        paths_growing_out_from_source.insert((i+j+1),temp)  ### is this insert line doing what I think it is???
                                                         paths_growing_out_from_source.pop(i)    # remove this path from the list
                                                         break
                                                 else:
@@ -210,8 +192,8 @@ def get_paths(correlation_matrix,sources,sinks,number_of_paths,user_defined_perc
                 end = time.time()
                 redundant_paths_time = end - start
 
-                cutoff += cutoff_iteration * (1-float(num_paths)/number_of_paths)
-                temp_file.write('%f   %d   %f   %f   %f\n' %(cutoff,num_paths,1-float(num_paths)/number_of_paths,pathway_time,redundant_paths_time))
+                cutoff += cutoff_increment
+                temp_file.write('%f   %d   %f   %f   %f\n' %(cutoff,num_paths,float(num_paths)/number_of_paths*100.,pathway_time,redundant_paths_time))
 
         if len(paths) != 1:
                 for i in range(len(paths)-1):

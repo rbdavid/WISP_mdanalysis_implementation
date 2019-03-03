@@ -118,7 +118,7 @@ def create_vis_state(visualization_frame_pdb,selection_list,paths,vis_state_file
                                 z_vals.append(pos[2])
                         
                         try:
-                                degree = len(x_vals)
+                                degree = len(x_vals) - 1  
                                 if degree > 3: 
                                         degree = 3
 
