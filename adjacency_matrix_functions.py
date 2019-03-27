@@ -105,3 +105,10 @@ def linear_mutual_information_analysis(cartesian_covariance_matrix,output_direct
         # ----------------------------------------
         return MI
 
+def hENM_analysis(cartesian_covariance_matrix,output_directory):
+        """
+        """
+        
+        ####
+        return cartesian_covariance
+

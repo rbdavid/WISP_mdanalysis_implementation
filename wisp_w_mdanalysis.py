@@ -9,6 +9,7 @@ import os
 import importlib
 import numpy as np
 import MDAnalysis
+from IO import *
 
 # ----------------------------------------
 # VARIABLE DECLARATION: 
@@ -16,81 +17,9 @@ import MDAnalysis
 
 config_file = sys.argv[1]
 
-necessary_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths']
-
-all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_cartesian_covariance_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
-
 # ----------------------------------------
 # FUNCTIONS: 
 # ----------------------------------------
-
-def config_parser(config_file):	# Function to take config file and create/fill the parameter dictionary 
-        """ Function to take config file and create/fill the parameter dictionary (created before function call). 
-        
-        Usage: 
-            parameters = {}     # initialize the dictionary to be filled with keys and values
-            config_parser(config_file)
-
-        Arguments:
-            config_file: string object that corresponds to the local or global position of the config file to be used for this analysis.
-
-        """
-	for i in range(len(necessary_parameters)):
-		parameters[necessary_parameters[i]] = ''
-	
-	# SETTING DEFAULT PARAMETERS FOR OPTIONAL PARAMETERS:
-        parameters['weight_by_contact_map_boolean'] = False
-        parameters['summary_boolean'] = False 
-        parameters['nonstandard_substrates_selection'] = None
-        parameters['homemade_selections'] = None
-        parameters['alignment_selection'] = 'protein and name CA'
-        parameters['traj_list'] = None
-        parameters['trajectory_step'] = 1
-        parameters['contact_map_distance_cutoff'] = 99999.9
-        parameters['which_contact_map'] = 'average contact map'
-        parameters['user_input_cartesian_covariance_matrix'] = None
-        parameters['user_input_contact_map'] = None
-        parameters['node_sphere_radius'] = 0.0
-        parameters['node_sphere_rgb'] = (1.0,1.0,1.0)
-        parameters['shortest_path_rgb'] = (1.0,1.0,1.0)
-        parameters['longest_path_rgb'] = (1.0,1.0,1.0)
-        parameters['node_sphere_color_index'] = 34
-        parameters['VMD_color_index_range'] = (35,1056)
-        parameters['VMD_resolution'] = 10
-        parameters['VMD_spline_smoothness'] = 1
-
-	# GRABBING PARAMETER VALUES FROM THE CONFIG FILE:
-	execfile(config_file,parameters)
-	for key, value in parameters.iteritems():
-		if value == '':
-			print '%s has not been assigned a value. This variable is necessary for the script to run. Please declare this variable within the config file.' %(key)
-			sys.exit()
-
-def summary(summary_file_name):
-        """ Function to create a text file that holds important information about the analysis that was just performed. Outputs the version of MDAnalysis, how to rerun the analysis, and the parameters used in the analysis.
-
-        Usage:
-            summary(summary_file_name)
-
-        Arguments:
-            summary_file_name: string object of the file name to be written that holds the summary information.
-
-        """
-	with open(summary_file_name,'w') as f:
-		f.write('Using MDAnalysis version: %s\n' %(MDAnalysis.version.__version__))
-		f.write('\nAtom selections analyzed have been written out to node_selections.txt\n')
-		f.write('To recreate this analysis, run this line:\n')
-		for i in range(len(sys.argv)):
-			f.write('%s ' %(sys.argv[i]))
-		f.write('\n\n')
-		f.write('Parameters used:\n')
-                for key, value in parameters.iteritems():
-                        if key == '__builtins__':
-                                continue
-                        if type(value) == int or type(value) == float:
-			        f.write("%s = %s\n" %(key,value))
-                        else:
-			        f.write("%s = '%s'\n" %(key,value))
 
 def main():
 
@@ -117,7 +46,6 @@ def main():
         # TRAJECTORY ANALYSIS
         # ----------------------------------------
         if parameters['trajectory_analysis_boolean']:
-                
                 # ----------------------------------------
                 # ALIGN THE NODE TRAJECTORY TO THE AVERAGE NODE POSITIONS; ITERATIVE AVERAGE METHOD
                 # ----------------------------------------
@@ -161,9 +89,9 @@ def main():
         # FUNCTIONALIZE THE ADJACENCY MATRIX
         # ----------------------------------------
         if parameters['weight_by_contact_map_boolean']:
-                funcionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,parameters['output_directory'], contact_map = contact_map, Lambda = parameters['lambda'])
+                functionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,parameters['output_directory'], contact_map = contact_map, Lambda = parameters['lambda'])
         else:
-                funcionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,parameters['output_directory'])
+                functionalized_adjacency_matrix = functionalize_adjacency_matrix(adjacency_matrix,parameters['output_directory'])
        
         print 'Finished functionalizing and weighting the adjacency matrix.'
         
@@ -186,7 +114,7 @@ def main():
         # ----------------------------------------
         # COMPUTE THE ENSEMBLE OF PATHS THAT CONNECT THE SOURCE AND SINK RESIDUES 
         # ----------------------------------------
-        paths = get_paths(funcionalized_adjacency_matrix,source_indices,sink_indices,parameters['number_of_paths'])
+        paths = get_paths(functionalized_adjacency_matrix,source_indices,sink_indices,parameters['number_of_paths'])
         print 'Finished calculating the pathways that connect the source and sink selections.'
         
         with open(simply_formatted_paths_file_name,'w') as W:
@@ -251,13 +179,17 @@ elif parameters['adjacency_matrix_style'].upper() == 'MUTUAL INFORMATION':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).mutual_information_analysis
         functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
 
-elif parameters['adjacency_matrix_style'].upper() in ('REACH','COVARIANCE HESSIAN'):
-        adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).REACH_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_k_matrix
-
-elif parameters['adjacency_matrix_style'].upper() == 'HENM':
+elif parameters['adjacency_matrix_style'].upper() in ('HENM_func','HESSIAN_func'):
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
-        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_k_matrix
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_hessian
+
+elif parameters['adjacency_matrix_style'].upper() in ('HENM','HESSIAN'):
+        adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
+        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
+
+#elif parameters['adjacency_matrix_style'].upper() == 'HENM':
+#        adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
+#        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_k_matrix
 
 else:
         print 'The user has not read in an accepted style of adjacency matrix. Current options are pearson correlation coefficient matrix (denoted by PEARSON CORRELATION), linear mutual information (denoted by LMI or LINEAR MUTUAL INFORMATION), covariance hessian or reach (denoted by COVARIANCE HESSIAN or REACH), or hetero elastic network model (denoted by HENM).'
