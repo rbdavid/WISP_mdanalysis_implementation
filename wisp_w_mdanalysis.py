@@ -153,7 +153,7 @@ def main():
         # OUTPUTTING SUMMARY INFORMATION
         # ----------------------------------------
         if parameters['summary_boolean']:
-                summary(summary_file_name)
+                summary(summary_file_name,sys.argv,parameters)
 
 # ----------------------------------------
 # CREATING PARAMETER DICTIONARY
@@ -185,7 +185,7 @@ elif parameters['adjacency_matrix_style'].upper() == 'MUTUAL INFORMATION':
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).mutual_information_analysis
         functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).generalized_correlation_coefficient_calc
 
-elif parameters['adjacency_matrix_style'].upper() in ('HENM_func','HESSIAN_func'):
+elif parameters['adjacency_matrix_style'].upper() in ('HENM_FUNC','HESSIAN_FUNC'):
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
         functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_hessian
 

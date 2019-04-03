@@ -5,6 +5,7 @@
 
 import importlib
 import MDAnalysis
+import sys
 
 # ----------------------------------------
 # FUNCTIONS: 
@@ -56,11 +57,11 @@ def config_parser(config_file,parameters):	# Function to take config file and cr
 			print '%s has not been assigned a value. This variable is necessary for the script to run. Please declare this variable within the config file.' %(key)
 			sys.exit()
 
-def summary(summary_file_name):
+def summary(summary_file_name,arguments,parameters):
         """ Function to create a text file that holds important information about the analysis that was just performed. Outputs the version of MDAnalysis, how to rerun the analysis, and the parameters used in the analysis.
 
         Usage:
-            summary(summary_file_name)
+            summary(summary_file_name,arguments,parameters)
 
         Arguments:
             summary_file_name: string object of the file name to be written that holds the summary information.
@@ -70,8 +71,8 @@ def summary(summary_file_name):
 		f.write('Using MDAnalysis version: %s\n' %(MDAnalysis.version.__version__))
 		f.write('\nAtom selections analyzed have been written out to node_selections.txt\n')
 		f.write('To recreate this analysis, run this line:\n')
-		for i in range(len(sys.argv)):
-			f.write('%s ' %(sys.argv[i]))
+		for i in range(len(arguments)):
+			f.write('%s ' %(arguments[i]))
 		f.write('\n\n')
 		f.write('Parameters used:\n')
                 for key, value in parameters.iteritems():

@@ -77,10 +77,14 @@ def func_hessian(adjacency_matrix,output_directory, contact_map = None, Lambda =
         
         functionalized_correlation_file_name = output_directory + 'func_hessian.dat'
         nNodes = adjacency_matrix.shape[0]
-        for i in nNodes:
-                for j in nNodes:
+        nNodes_range = range(nNodes)
+        for i in nNodes_range[:-1]:
+                for j in nNodes_range[i+1:]:
                         adjacency_matrix[i,j] /= np.sqrt(adjacency_matrix[i,i]*adjacency_matrix[j,j])
-        
+                        adjacency_matrix[j,i] = adjacency_matrix[i,j]
+                adjacency_matrix[i,i] = 1.
+        adjacency_matrix[-1,-1] = 1.
+
         functionalized_correlation = -np.log(np.fabs(adjacency_matrix))
         
         if contact_map is not None:
