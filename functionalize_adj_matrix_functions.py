@@ -16,7 +16,7 @@ def func_pearson_correlation(adjacency_matrix,output_directory, contact_map = No
         functionalized_correlation_file_name = output_directory + 'func_pearson_correlation.dat'
         functionalized_correlation = -np.log(np.fabs(adjacency_matrix))
         
-        if type(contact_map) != NoneType:
+        if contact_map is not None:
                 functionalized_correlation *= contact_map
 
         np.savetxt(functionalized_correlation_file_name,functionalized_correlation)
@@ -33,7 +33,7 @@ def generalized_correlation_coefficient_calc(adjacency_matrix,output_directory, 
 
         rMI = np.sqrt(1.0 - np.exp(-2.0*adjacency_matrix/3))
        
-        if type(contact_map) != NoneType and type(Lambda) != NoneType:
+        if contact_map is not None and Lambda is not None:
                 print 'Applying a node-node distance-dependent exponential decay to the generalized correlation coefficient matrix (r_{MI}). The exponential damping factor (%.3f angstroms) is being used. This damping propogates into the functionalized adjacency matrix that will be used for pathway-finding analysis.'
                 for i in range(rMI.shape[0]):
                         for j in range(rMI.shape[0]):
@@ -83,7 +83,7 @@ def func_hessian(adjacency_matrix,output_directory, contact_map = None, Lambda =
         
         functionalized_correlation = -np.log(np.fabs(adjacency_matrix))
         
-        if type(contact_map) != NoneType:
+        if contact_map is not None:
                 functionalized_correlation *= contact_map
 
         np.savetxt(functionalized_correlation_file_name,functionalized_correlation)

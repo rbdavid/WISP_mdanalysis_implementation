@@ -70,10 +70,18 @@ def main():
         # USER SPECIFIED DATA INPUT
         # ----------------------------------------
         else:
-                print 'Loading in the user specified data files.'
-                Node_cart_covariance = np.loadtxt(parameters['user_input_cartesian_covariance_matrix'])
+                if parameters['user_input_cartesian_covariance_matrix'] != None:
+                        print 'Loading in the user specified cartesian covariance data files.'
+                        Node_cart_covariance = np.loadtxt(parameters['user_input_cartesian_covariance_matrix'])
+                        adjacency_matrix = adjacency_matrix_analysis(Node_cart_covariance,parameters['output_directory'])
+                        print 'Finished calculating the adjacency matrix (' + parameters['adjacency_matrix_style'] + ').'
+
+                if parameters['user_input_adjacency_matrix'] != None:
+                        print 'Loading in the user specified adjacency matrix data files.'
+                        adjacency_matrix = np.loadtxt(parameters['user_input_adjacency_matrix'])
 
                 if parameters['weight_by_contact_map_boolean']:
+                        print 'Loading in the user specified contact map data files.'
                         contact_map = np.loadtxt(parameters['user_input_contact_map'])  # can be either binary or average distances
                         if Node_cart_covariance.shape != contact_map.shape:
                                 print 'User has read in a contact map that does not have the same shape as the cartesian covariance data.'
@@ -82,8 +90,6 @@ def main():
         # ----------------------------------------
         # CALC THE DESIRED ADJACENCY MATRIX 
         # ----------------------------------------
-        adjacency_matrix = adjacency_matrix_analysis(Node_cart_covariance,parameters['output_directory'])
-        print 'Finished calculating the adjacency matrix (' + parameters['adjacency_matrix_style'] + ').'
 
         # ----------------------------------------
         # FUNCTIONALIZE THE ADJACENCY MATRIX
@@ -153,7 +159,7 @@ def main():
 # CREATING PARAMETER DICTIONARY
 # ----------------------------------------
 parameters = {}
-config_parser(config_file)
+config_parser(config_file,parameters)
 
 # ----------------------------------------
 # LOADING IN NECESSARY FUNCTIONS FROM MODULE FILES
@@ -186,10 +192,6 @@ elif parameters['adjacency_matrix_style'].upper() in ('HENM_func','HESSIAN_func'
 elif parameters['adjacency_matrix_style'].upper() in ('HENM','HESSIAN'):
         adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
         functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).do_nothing
-
-#elif parameters['adjacency_matrix_style'].upper() == 'HENM':
-#        adjacency_matrix_analysis = importlib.import_module(parameters['adjacency_matrix_functions_file'].split('.')[0],package=None).hENM_analysis
-#        functionalize_adjacency_matrix = importlib.import_module(parameters['func_adjacency_matrix_functions_file'].split('.')[0],package=None).func_k_matrix
 
 else:
         print 'The user has not read in an accepted style of adjacency matrix. Current options are pearson correlation coefficient matrix (denoted by PEARSON CORRELATION), linear mutual information (denoted by LMI or LINEAR MUTUAL INFORMATION), covariance hessian or reach (denoted by COVARIANCE HESSIAN or REACH), or hetero elastic network model (denoted by HENM).'

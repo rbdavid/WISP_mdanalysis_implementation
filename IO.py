@@ -9,7 +9,7 @@ import MDAnalysis
 # ----------------------------------------
 # FUNCTIONS: 
 # ----------------------------------------
-def config_parser(config_file,necessary_parameters,all_parameters):	# Function to take config file and create/fill the parameter dictionary 
+def config_parser(config_file,parameters):	# Function to take config file and create/fill the parameter dictionary 
         """ Function to take config file and create/fill the parameter dictionary (created before function call). 
         
         Usage: 
@@ -22,7 +22,7 @@ def config_parser(config_file,necessary_parameters,all_parameters):	# Function t
         """
         necessary_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths']
 
-        all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_cartesian_covariance_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
+        all_parameters = ['output_directory','node_selection_file','trajectory_functions_file','adjacency_matrix_functions_file','func_adjacency_matrix_functions_file','network_functions_file','visualization_functions_file','trajectory_analysis_boolean','adjacency_matrix_style','pdb','visualization_frame_pdb','substrate_node_definition','substrate_selection_string','source_selection_string_list','sink_selection_string_list','number_of_paths','weight_by_contact_map_boolean','summary_boolean','nonstandard_substrates_selection','homemade_selections','alignment_selection','traj_list','trajectory_step','contact_map_distance_cutoff','which_contact_map','user_input_cartesian_covariance_matrix','user_input_adjacency_matrix','user_input_contact_map','node_sphere_radius','node_sphere_rgb','shortest_path_rgb','longest_path_rgb','shortest_path_radius','longest_path_radius','node_sphere_color_index','VMD_color_index_range','VMD_resolution','VMD_spline_smoothness']
 
 	for i in range(len(necessary_parameters)):
 		parameters[necessary_parameters[i]] = ''
@@ -38,6 +38,7 @@ def config_parser(config_file,necessary_parameters,all_parameters):	# Function t
         parameters['contact_map_distance_cutoff'] = 99999.9
         parameters['which_contact_map'] = 'average contact map'
         parameters['user_input_cartesian_covariance_matrix'] = None
+        parameters['user_input_adjacency_matrix'] = None
         parameters['user_input_contact_map'] = None
         parameters['node_sphere_radius'] = 0.0
         parameters['node_sphere_rgb'] = (1.0,1.0,1.0)
