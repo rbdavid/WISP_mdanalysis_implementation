@@ -3,6 +3,7 @@
 
 import MDAnalysis
 from MDAnalysis.analysis.align import rotation_matrix
+from MDAnalysis.analysis.distances import distance_array
 import numpy as np
 from numpy.linalg import *
 
@@ -35,7 +36,7 @@ def RMSD(x,y,n):
 	return (np.sum(np.square(x-y))/n)**0.5	# the MSD should never be negative, so using **0.5 rather than np.sqrt is safe
 
 # ----------------------------------------
-def alignment_averaging_and_covariance_analysis(universe, alignment_selection, selection_list, trajectory_list, output_directory, convergence_threshold = 1E-5, maximum_num_iterations = 100, step = 1):
+def traj_alignment_and_averaging(universe, alignment_selection, selection_list, node_definition, trajectory_list, output_directory, convergence_threshold = 1E-5, maximum_num_iterations = 100, step = 1):
 	"""
 	"""
 	
@@ -43,8 +44,6 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         # IO NAMING VARIABLES
         # ----------------------------------------
         average_file_name = output_directory + 'average_node_positions.dat'
-        variance_file_name = output_directory + 'cartesian_variance.dat'
-        covariance_file_name = output_directory + 'cartesian_covariance.dat'
         
         # ----------------------------------------
 	# CREATING ALIGNMENT SELECTIONS
@@ -69,14 +68,14 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
                         sys.exit()
                 nSteps += len(universe.trajectory)/step
                 for ts in universe.trajectory[::step]:
-                        u_all.translate(-u_alignment.center_of_mass())
+                        u_all.translate(-u_alignment.center_of_mass())  # removing center of mass (of the alignment landmark) translation
                         all_pos_Align.append(u_alignment.positions)
                         temp = []
                         for i in nNodes_range:
-                                if str(type(selection_list[i])) == "<class 'MDAnalysis.core.groups.Atom'>":
-                                        temp.append(selection_list[i].position)
-                                else:
+                                if node_definition.upper() == 'COM':
                                         temp.append(selection_list[i].center_of_mass())
+                                elif node_definition.upper() == 'ATOMIC':
+                                        temp.append(selection_list[i].position)
                         all_pos_Nodes.append(temp)
 
         print 'Analyzed', nSteps, 'frames.'
@@ -121,8 +120,8 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
                 
                 # increment the iteration number and assign new averages to old averages variables
                 iteration += 1
-                avg_pos_Align = temp_avg_pos_Align
-                avg_pos_Nodes = temp_avg_pos_Nodes
+                avg_pos_Align = np.copy(temp_avg_pos_Align)
+                avg_pos_Nodes = np.copy(temp_avg_pos_Nodes)
 
                 print 'Iteration ', iteration, ': RMSD btw alignment landmarks: ', residual,', RMSD btw Node Positions: ', analysis_RMSD
         
@@ -131,11 +130,29 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         # ----------------------------------------
         # SAVE AVERAGE NODE POSITIONS TO FILE
         # ----------------------------------------
-        np.savetxt(average_file_name,avg_pos_Nodes)
-       
+        np.savetxt(average_file_name,avg_pos_Nodes,header='Shape: nNodes x 3 (%d x 3)'%(nNodes))
+      
+        # ----------------------------------------
+        # RETURNING THE ALIGNED NODE TRAJECTORY AND AVERAGE NODE POSITIONS
+        # ----------------------------------------
+        return all_pos_Nodes, avg_pos_Nodes
+
+# ----------------------------------------
+def cartesian_covariance(node_trajectory, avg_node_positions, output_directory):
+	"""
+	"""
+        # ----------------------------------------
+        # IO NAMING VARIABLES
+        # ----------------------------------------
+        variance_file_name = output_directory + 'cartesian_variance.dat'
+        covariance_file_name = output_directory + 'cartesian_covariance.dat'
+        
         # ----------------------------------------
         # CALCULATING THE COVARIANCE OF NODE CARTESIAN COORDINATES
         # ----------------------------------------
+        nSteps = node_trajectory.shape[0]
+        nSteps_range = range(nSteps)
+        nNodes = node_trajectory.shape[1]
         nCartCoords = 3*nNodes
         nCartCoords_range = range(nCartCoords)
 
@@ -151,7 +168,7 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         xyz_node_covariance /= nSteps
         flatten_avg_positions = avg_pos_Nodes.flatten()
         xyz_node_covariance -= np.dot(flatten_avg_positions.reshape(nCartCoords,1),flatten_avg_positions.reshape(1,nCartCoords))
-        xyz_node_variance = np.diagonal(xyz_node_covariance)
+        xyz_node_variance = np.diag(xyz_node_covariance)
         
         print 'Finished calculating the variance and covariance of node cartesian coordinates. Outputting the two arrays to file. The covariance matrix file can be reused in subsequent analyses of various adjacency matrices, assuming studying the same range of frames, selections, etc.'
 
@@ -162,12 +179,12 @@ def alignment_averaging_and_covariance_analysis(universe, alignment_selection, s
         np.savetxt(covariance_file_name,xyz_node_covariance)
        
         # ----------------------------------------
-        # RETURNING THE ALIGNED NODE TRAJECTORY, AVERAGE NODE POSITIONS, COVARIANCE AND VARIANCE OF NODE CARTESIAN COORDINATES
+        # COVARIANCE OF NODE CARTESIAN COORDINATES
         # ----------------------------------------
-        return all_pos_Nodes, avg_pos_Nodes, xyz_node_covariance
+        return xyz_node_covariance
 
 # ----------------------------------------
-def calc_contact_map(trajectory_data,distance_cutoff, output_directory):
+def calc_contact_map(trajectory_data, output_directory, distance_cutoff=9999.):
         """
         """
 	
@@ -181,17 +198,19 @@ def calc_contact_map(trajectory_data,distance_cutoff, output_directory):
 	# MEASURING THE AVERAGE DISTANCE BETWEEN NODES - add error analysis?
         # ----------------------------------------
         nSteps = trajectory_data.shape[0]
-        nNodes = trajectory_data.shape[1]
         nSteps_range = range(nSteps)
+        nNodes = trajectory_data.shape[1]
         nNodes_range = range(nNodes)
         avg_node_node_distance_array = np.zeros((nNodes,nNodes),dtype=np.float64)
+        temp_avg_node_node_distance_array = np.zeros((nNodes,nNodes),dtype=np.float64)
         print 'Starting to calculate the average distance between nodes.'
         for ts in nSteps_range:
-                for i in nNodes_range[:-1]:
-                        node1_pos = trajectory_data[ts,i]
-                        for j in nNodes_range[i+1:]:
-                                dist,dist2 = euclid_dist(node1_pos,trajectory_data[ts,j])
-                                avg_node_node_distance_array[i,j] += dist
+                avg_node_node_distance_array += distance_array(trajectory[ts,:,:],trajectory[ts,:,:],result=temp_avg_node_node_distance_array)
+                #for i in nNodes_range[:-1]:
+                #        node1_pos = trajectory_data[ts,i]
+                #        for j in nNodes_range[i+1:]:
+                #                dist,dist2 = euclid_dist(node1_pos,trajectory_data[ts,j])
+                #                avg_node_node_distance_array[i,j] += dist
        
         avg_node_node_distance_array /= nSteps
         
@@ -201,10 +220,9 @@ def calc_contact_map(trajectory_data,distance_cutoff, output_directory):
         binary_node_node_distance_array = np.zeros((nNodes,nNodes),np.int)
         for i in nNodes_range[:-1]:
                 for j in nNodes_range[i+1:]:
-                        avg_node_node_distance_array[j,i] = avg_node_node_distance_array[i,j]
+                        #avg_node_node_distance_array[j,i] = avg_node_node_distance_array[i,j]
                         if avg_node_node_distance_array[i,j] < distance_cutoff:
-                                binary_node_node_distance_array[i,j] = 1
-                                binary_node_node_distance_array[j,i] = 1
+                                binary_node_node_distance_array[i,j] = binary_node_node_distance_array[j,i] = 1
 
         # ----------------------------------------
         # SAVING THE AVERAGE AND BINARY CONTACT MAPS
