@@ -1,8 +1,6 @@
 
 # PREAMBLE:
 
-import MDAnalysis
-from MDAnalysis.analysis.align import rotation_matrix
 import numpy as np
 from numpy.linalg import *
 
@@ -104,7 +102,7 @@ def linear_mutual_information_analysis(cartesian_covariance_matrix,average_node_
         # ----------------------------------------
         return MI
 
-def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_directory,distance_cutoff = 9999.,threshold=1e-4,max_iterations=100,guess=None,alpha=0.1):
+def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_directory,guess=None,distance_cutoff = 9999.,threshold=1e-4,max_iterations=100,alpha=0.1,kBT = 0.592):
         """
         """
 
@@ -133,11 +131,17 @@ def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_dire
         # ----------------------------------------
         # CALCULATING THE NODE PAIR DISTANCE VECTORS
         # ----------------------------------------
-        dispVecs = np.empty((nNodes,nNodes,3),dtype=np.float64)
-        for i in nNodes_range[:-1]:
-                for j in nNodes_range[i+1:]:
-                        diff = average_node_positions[i,:] - average_node_positions[j,:]
-                        dispVecs[i,j,:] = dispVecs[j,i,:] = diff/np.linalg.norm(diff)
+        # code from P. Rex Lake
+        #make an array of separation vectors
+        xhat = average_node_positions[:,None] - average_node_positions[None,:]
+        #make an array of distances
+        x0 = np.sqrt(np.einsum('ijk,ijk->ij',xhat,xhat))
+        #invert said array, avoiding the 0's along the diagonal
+        x0 = np.divide(1., x0, out=np.zeros_like(x0), where=x0!=0)
+        #convert the separation vectors into unit vectors
+        xhat = np.einsum('ijk,ij->ijk', xhat, x0)
+        #an array of outer products
+        xhat2=np.einsum('ijk,ijl->ijkl',xhat,xhat)
 
         # ----------------------------------------
         # CALCULATING THE INITIAL RESIDUAL FROM THE ORIGINAL COVARIANCE MATRIX
@@ -149,9 +153,13 @@ def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_dire
                 for j in nNodes_range[i+1:]:
                         jIndex = j*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
                         jIndex3 = jIndex+3
+                        # ii_submatrix + jj_submatrix - ij_submatrix - ji_submatrix; results in a 3x3 matrix that describes the ...
                         temp = cartesian_covariance_matrix[iIndex:iIndex3,iIndex:iIndex3] + cartesian_covariance_matrix[jIndex:jIndex3,jIndex:jIndex3] - cartesian_covariance_matrix[iIndex:iIndex3,jIndex:jIndex3] - cartesian_covariance_matrix[iIndex:iIndex3,jIndex:jIndex3].T
-                        targetResidual[i,j] = targetResidual[j,i] = 1.0/(np.dot(dispVecs[i,j].T,np.dat(temp,dispVecs[i,j])))
+                        # 1/(xhat * covar_submatrix * xhat)
+                        targetResidual[i,j] = targetResidual[j,i] = 1.0/(np.dot(xhat[i,j].T,np.dot(temp,xhat[i,j])))
         
+        np.savetxt('target_residual.dat',targetResidual)
+
         # ----------------------------------------
         # ITERATIVELY IMPROVE THE HESSIAN TO MATCH THE RESIDUAL
         # ----------------------------------------
@@ -159,25 +167,18 @@ def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_dire
         dev = thresh + 9999.
         converged = 'False'
         while step < max_iterations and converged == 'False':
-                # project hessian in 3Nx3N
-                hessian3N = np.zeros((nCartCoords,nCartCoords),dtype=np.float64)
-                for i in nNodes_range[:-1]:
-                        iIndex = i*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
-                        iIndex3 = iIndex+3
-                        for j in nNodes_range[i+1:]:
-                                jIndex = j*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
-                                jIndex3 = jIndex+3
-                                hessian3N[iIndex:iIndex3,jIndex:jIndex3] = hessian3N[jIndex:jIndex3,iIndex:iIndex3] = hessian[i,j] * np.outer(dispVecs[i,j,:],dispVecs[i,j,:])
-                for i in nNodes_range:
-                        iIndex = i*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
-                        iIndex3 = iIndex+3
-                        for j in nNodes_range:
-                                jIndex = j*3    # i index assuming that each node has 3 values sequentially populating the covar matrix 
-                                if j != i:
-                                        hessian3N[iIndex:iIndex3,iIndex:iIndex3] -= hessian3N[iIndex:iIndex3,jIndex:jIndex+3]
-
+                # project NxN hessian to 3Nx3N hessian
+                # code from P. Rex Lake
+                hessian3N = np.einsum('ij,ijkl->ikjl',hessian,xhat2)
+                #set the diagonals
+                hessian3N_diag = block_diag(*np.sum(hessian3N,axis=2))
+                hessian3N = np.reshape(hessian3N,(nCartCoords,nCartCoords))-hessian3N_diag
                 # invert hessian using psuedo inverse; multiplying by thermal energy (kcal mol^-1) to remove energy units
-                covar3N = np.linalg.pinv(hessian3N,rcond=1e-12)*0.593
+                e,v = np.linalg.eigh(hessian3N)
+                covar3N = kBT*np.dot(v[:,6:]/e[6:],v[:,6:].T)
+                
+                # save model covar3N
+                np.savetxt('%05d.covar3N.dat'%(step),covar3N)
                 
                 # take difference of tensor covars and project into separation vector
                 diffMatrix = np.zeros((nNodes,nNodes),dtype=np.float64)
@@ -189,7 +190,10 @@ def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_dire
                                 jIndex3 = jIndex+3
                                 temp = covar3N[iIndex:iIndex3,iIndex:iIndex3] + covar3N[jIndex:jIndex3,jIndex:jIndex3] - covar3N[iIndex:iIndex3,jIndex:jIndex3] - covar3N[iIndex:iIndex3,jIndex:jIndex3].T
                                 diffMatrix[i,j] = diffMatrix[j,i] = (1.0/np.dot(dispVecs[i,j,:],np.dot(temp,dispVecs[i,j,:]))) - targetResidual[i,j]
-                
+               
+                # save diffMatrix 
+                np.savetxt('%05d.diffMatrix.dat'%(step),diffMatrix)
+
                 # check to see if converged
                 dev = np.linalg.norm(diffMatrix)
                 if dev < threshold:
@@ -198,25 +202,27 @@ def hENM_analysis(cartesian_covariance_matrix,average_node_positions,output_dire
                         for i in nNodes_range[:-1]:
                                 for j in nNodes_range[i+1:]:
                                         hessian[i,j] += alpha * diffMatrix[i,j]
-                                        if hessian[i,j] > 0.0:
-                                                hessian[i,j] = hessian[j,i] = 0.0
-                                        else:
-                                                hessian[j,i] = hessian[i,j]
+                                        hessian[j,i] = hessian[i,j]
+                                        #if hessian[i,j] > 0.0:
+                                        #        hessian[i,j] = hessian[j,i] = 0.0
+                                        #else:
+                                        #        hessian[j,i] = hessian[i,j]
                         for i in nNodes_range:
+                                hessian[i,i] = 0
                                 hessian[i,i] = -np.sum(hessian[i,:])
                 
-                step += 1
                 print step, dev
+                step += 1
 
         print 'Hessian has been iteratively converged to match the original cartesian covariance.'
                         
         # ----------------------------------------
-        # SAVE LINEAR MUTUAL INFORMATION TO FILE
+        # SAVE HESSIAN MATRIX TO FILE
         # ----------------------------------------
         np.savetxt(hessian_file_name,hessian)
 
         # ----------------------------------------
-        # RETURNING LINEAR MUTUAL INFORMATION MATRIX
+        # RETURNING HESSIAN MATRIX
         # ----------------------------------------
         return hessian
 
